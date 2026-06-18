@@ -463,3 +463,21 @@ export async function completeTurno(turnoId: string) {
     return { success: false, error: 'Error' };
   }
 }
+
+export async function deleteTurno(turnoId: string) {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      const db = getMockDb();
+      const index = db.turnos.findIndex(t => t.id === turnoId);
+      if (index === -1) return { success: false, error: 'Turno no encontrado' };
+      db.turnos.splice(index, 1);
+      saveMockDb(db);
+    } else {
+      await prisma.turno.delete({ where: { id: turnoId } });
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error in deleteTurno', error);
+    return { success: false, error: 'No se pudo eliminar el turno' };
+  }
+}

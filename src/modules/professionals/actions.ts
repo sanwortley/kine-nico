@@ -140,3 +140,23 @@ export async function toggleProfessionalActive(id: string) {
     return { success: false, error: 'Error al cambiar estado' };
   }
 }
+
+export async function deleteProfessional(id: string) {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      const db = getMockDb();
+      const index = db.professionals.findIndex(p => p.id === id);
+      if (index === -1) return { success: false, error: 'Profesional no encontrado' };
+      db.turnos = db.turnos.filter(t => t.professionalId !== id);
+      db.professionals.splice(index, 1);
+      saveMockDb(db);
+    } else {
+      await prisma.turno.deleteMany({ where: { professionalId: id } });
+      await prisma.professional.delete({ where: { id } });
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error in deleteProfessional', error);
+    return { success: false, error: 'No se pudo eliminar el profesional' };
+  }
+}

@@ -116,3 +116,23 @@ export async function toggleServiceActive(id: string, currentActive: boolean) {
     return { success: false, error: 'Error' };
   }
 }
+
+export async function deleteService(id: string) {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      const db = getMockDb();
+      const index = db.services.findIndex(s => s.id === id);
+      if (index === -1) return { success: false, error: 'Servicio no encontrado' };
+      db.turnos = db.turnos.filter(t => t.serviceId !== id);
+      db.services.splice(index, 1);
+      saveMockDb(db);
+    } else {
+      await prisma.turno.deleteMany({ where: { serviceId: id } });
+      await prisma.service.delete({ where: { id } });
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error in deleteService', error);
+    return { success: false, error: 'No se pudo eliminar el servicio' };
+  }
+}

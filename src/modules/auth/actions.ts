@@ -389,3 +389,29 @@ export async function changeUserPassword(formData: FormData, userId: string) {
     return { success: false, error: error.message || 'Error al cambiar contraseña' };
   }
 }
+
+export async function deleteUser(id: string) {
+  try {
+    if (FEATURE_FLAGS.USE_MOCK_DATA) {
+      const db = getMockDb();
+      const index = db.users.findIndex(u => u.id === id);
+      if (index === -1) return { success: false, error: 'Usuario no encontrado' };
+      const email = db.users[index].email;
+      db.professionals = db.professionals.filter(p => p.email !== email);
+      db.users.splice(index, 1);
+      saveMockDb(db);
+    } else {
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (user) {
+        if (user.role === 'PROFESSIONAL') {
+          await prisma.professional.deleteMany({ where: { email: user.email } });
+        }
+        await prisma.user.delete({ where: { id } });
+      }
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error in deleteUser', error);
+    return { success: false, error: 'No se pudo eliminar el usuario' };
+  }
+}

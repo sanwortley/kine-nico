@@ -29,16 +29,6 @@
       "status": "PENDING",
       "createdAt": "2026-06-18T14:43:41.245Z",
       "updatedAt": "2026-06-18T14:43:41.245Z"
-    },
-    {
-      "id": "usr_801zsg",
-      "email": "sanwortley@gmail.com",
-      "hashedPassword": "$2b$10$7dYJPuq/29SREXSNOuBfAOChS4LWpMCo5oBkFzOXYD/n68VKFQue2",
-      "name": "Santi Wortley",
-      "role": "CLIENT",
-      "status": "ACTIVE",
-      "createdAt": "2026-06-18T14:47:28.303Z",
-      "updatedAt": "2026-06-18T14:47:36.884Z"
     }
   ],
   "professionals": [
@@ -83,104 +73,22 @@
       "active": true,
       "createdAt": "2026-06-18T14:43:41.245Z",
       "updatedAt": "2026-06-18T14:43:41.245Z"
-    },
-    {
-      "id": "srv-3",
-      "name": "Osteopatía Integral",
-      "description": "Terapia manual holística para la restauración de la movilidad corporal.",
-      "price": 18000,
-      "duration": 60,
-      "active": false,
-      "createdAt": "2026-06-18T14:43:41.245Z",
-      "updatedAt": "2026-06-18T14:43:41.245Z"
     }
   ],
   "turnos": [
     {
-      "id": "turno-1",
-      "fechaInicio": "2026-06-19T12:00:00.000Z",
+      "id": "turno-4",
+      "fechaInicio": "2026-06-19T18:00:00.000Z",
       "duracion": 45,
       "estado": "RESERVADO",
       "serviceId": "srv-2",
       "professionalId": "prof-1",
       "createdById": "admin-1",
       "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:51:31.593Z",
+      "updatedAt": "2026-06-18T19:52:08.255Z",
       "version": 1,
-      "clientId": "usr_801zsg",
+      "clientId": "client-1",
       "notas": ""
-    },
-    {
-      "id": "turno-2",
-      "fechaInicio": "2026-06-19T13:00:00.000Z",
-      "duracion": 60,
-      "estado": "CANCELADO",
-      "serviceId": "srv-3",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:58:26.546Z",
-      "version": 1
-    },
-    {
-      "id": "turno-3",
-      "fechaInicio": "2026-06-19T14:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-1",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-4",
-      "fechaInicio": "2026-06-19T18:00:00.000Z",
-      "duracion": 45,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-2",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-5",
-      "fechaInicio": "2026-06-19T19:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-6",
-      "fechaInicio": "2026-06-20T12:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-7",
-      "fechaInicio": "2026-06-20T13:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-1",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
     },
     {
       "id": "turno-8",
@@ -189,30 +97,6 @@
       "estado": "DISPONIBLE",
       "serviceId": "srv-2",
       "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-9",
-      "fechaInicio": "2026-06-20T18:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-10",
-      "fechaInicio": "2026-06-20T19:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-1",
-      "professionalId": "prof-1",
       "createdById": "admin-1",
       "createdAt": "2026-06-18T14:45:47.729Z",
       "updatedAt": "2026-06-18T14:45:47.729Z",
@@ -243,18 +127,6 @@
       "version": 0
     },
     {
-      "id": "turno-13",
-      "fechaInicio": "2026-06-21T14:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
       "id": "turno-14",
       "fechaInicio": "2026-06-21T18:00:00.000Z",
       "duracion": 60,
@@ -267,47 +139,11 @@
       "version": 0
     },
     {
-      "id": "turno-15",
-      "fechaInicio": "2026-06-21T19:00:00.000Z",
-      "duracion": 45,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-2",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
       "id": "turno-16",
       "fechaInicio": "2026-06-22T12:00:00.000Z",
       "duracion": 45,
       "estado": "DISPONIBLE",
       "serviceId": "srv-2",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-17",
-      "fechaInicio": "2026-06-22T13:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-18",
-      "fechaInicio": "2026-06-22T14:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-1",
       "professionalId": "prof-2",
       "createdById": "admin-1",
       "createdAt": "2026-06-18T14:45:47.729Z",
@@ -327,30 +163,6 @@
       "version": 0
     },
     {
-      "id": "turno-20",
-      "fechaInicio": "2026-06-22T19:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-21",
-      "fechaInicio": "2026-06-23T12:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
       "id": "turno-22",
       "fechaInicio": "2026-06-23T13:00:00.000Z",
       "duracion": 60,
@@ -361,55 +173,6 @@
       "createdAt": "2026-06-18T14:45:47.729Z",
       "updatedAt": "2026-06-18T14:45:47.729Z",
       "version": 0
-    },
-    {
-      "id": "turno-23",
-      "fechaInicio": "2026-06-23T14:00:00.000Z",
-      "duracion": 45,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-2",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-24",
-      "fechaInicio": "2026-06-23T18:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-3",
-      "professionalId": "prof-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-25",
-      "fechaInicio": "2026-06-23T19:00:00.000Z",
-      "duracion": 60,
-      "estado": "DISPONIBLE",
-      "serviceId": "srv-1",
-      "professionalId": "prof-2",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:45:47.729Z",
-      "version": 0
-    },
-    {
-      "id": "turno-res-1",
-      "fechaInicio": "2026-06-19T13:00:00.000Z",
-      "duracion": 60,
-      "estado": "CANCELADO",
-      "serviceId": "srv-1",
-      "professionalId": "prof-1",
-      "clientId": "client-1",
-      "createdById": "admin-1",
-      "createdAt": "2026-06-18T14:45:47.729Z",
-      "updatedAt": "2026-06-18T14:55:16.074Z",
-      "version": 2
     }
   ],
   "plans": [

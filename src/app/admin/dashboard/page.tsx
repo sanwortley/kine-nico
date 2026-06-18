@@ -2,12 +2,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
-import { getAllUsers, updateAccountStatus, toggleUserRole, adminCreateUser } from '@/modules/auth/actions';
-import { getServices, createService, toggleServiceActive } from '@/modules/services-offered/actions';
-import { getProfessionals, createProfessional, toggleProfessionalActive } from '@/modules/professionals/actions';
-import { getTurnos, createTurnoAvailability, cancelTurno, completeTurno } from '@/modules/turnos/actions';
+import { getAllUsers, updateAccountStatus, toggleUserRole, adminCreateUser, deleteUser } from '@/modules/auth/actions';
+import { getServices, createService, toggleServiceActive, deleteService } from '@/modules/services-offered/actions';
+import { getProfessionals, createProfessional, toggleProfessionalActive, deleteProfessional } from '@/modules/professionals/actions';
+import { getTurnos, createTurnoAvailability, cancelTurno, completeTurno, deleteTurno } from '@/modules/turnos/actions';
 import AdminMobileMenu from '@/app/components/AdminMobileMenu';
 import AddAvailabilityForm from './AddAvailabilityForm';
+import DeleteButton from '@/app/components/DeleteButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -173,6 +174,54 @@ export default async function AdminDashboard({
       redirect('/admin/dashboard?tab=turnos&successMsg=Turno completado.');
     } else {
       redirect('/admin/dashboard?tab=turnos&errorMsg=Error.');
+    }
+  }
+
+  // Action: delete user
+  async function removeUser(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    const res = await deleteUser(id);
+    if (res.success) {
+      redirect('/admin/dashboard?tab=usuarios&successMsg=Usuario eliminado correctamente.');
+    } else {
+      redirect(`/admin/dashboard?tab=usuarios&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
+    }
+  }
+
+  // Action: delete service
+  async function removeService(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    const res = await deleteService(id);
+    if (res.success) {
+      redirect('/admin/dashboard?tab=servicios&successMsg=Servicio eliminado correctamente.');
+    } else {
+      redirect(`/admin/dashboard?tab=servicios&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
+    }
+  }
+
+  // Action: delete professional
+  async function removeProf(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    const res = await deleteProfessional(id);
+    if (res.success) {
+      redirect('/admin/dashboard?tab=profesionales&successMsg=Profesional eliminado correctamente.');
+    } else {
+      redirect(`/admin/dashboard?tab=profesionales&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
+    }
+  }
+
+  // Action: delete turno
+  async function removeTurno(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    const res = await deleteTurno(id);
+    if (res.success) {
+      redirect('/admin/dashboard?tab=turnos&successMsg=Turno eliminado de la agenda.');
+    } else {
+      redirect(`/admin/dashboard?tab=turnos&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
     }
   }
 
@@ -390,8 +439,7 @@ export default async function AdminDashboard({
                                   {u.status}
                                 </span>
                               </td>
-                              <td className="py-4 px-4 text-right flex justify-end gap-2">
-                                
+                              <td className="py-4 px-4 text-right flex justify-end items-center gap-2">
                                 <form action={changeStatus}>
                                   <input type="hidden" name="userId" value={u.id} />
                                   <input type="hidden" name="tab" value="usuarios" />
@@ -404,6 +452,7 @@ export default async function AdminDashboard({
                                     {u.status === 'ACTIVE' ? 'Suspender' : 'Activar'}
                                   </button>
                                 </form>
+                                <DeleteButton action={removeUser} id={u.id} confirmMessage="¿Estás seguro de eliminar este usuario?" title="Eliminar Usuario" />
                               </td>
                             </tr>
                           ))}
@@ -413,8 +462,7 @@ export default async function AdminDashboard({
                   </div>
                 </div>
               </div>
-            )
-}
+            )}
 
             {/* TAB: SERVICIOS */}
             {activeTab === 'servicios' && (
@@ -462,17 +510,20 @@ export default async function AdminDashboard({
                           <p className="text-xs font-bold text-primary mt-2">Precio: ${s.price.toLocaleString('es-AR')}</p>
                         </div>
                         
-                        <form action={toggleService}>
-                          <input type="hidden" name="id" value={s.id} />
-                          <input type="hidden" name="active" value={s.active ? 'false' : 'true'} />
-                          <button type="submit" className={`text-xs px-3 py-1.5 rounded-lg font-bold cursor-pointer ${
-                            s.active 
-                              ? 'bg-red-50 text-red-600 hover:bg-red-100' 
-                              : 'bg-green-50 text-green-600 hover:bg-green-100'
-                          }`}>
-                            {s.active ? 'Desactivar' : 'Activar'}
-                          </button>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          <form action={toggleService}>
+                            <input type="hidden" name="id" value={s.id} />
+                            <input type="hidden" name="active" value={s.active ? 'false' : 'true'} />
+                            <button type="submit" className={`text-xs px-3 py-1.5 rounded-lg font-bold cursor-pointer ${
+                              s.active 
+                                ? 'bg-red-50 text-red-600 hover:bg-red-100' 
+                                : 'bg-green-50 text-green-600 hover:bg-green-100'
+                            }`}>
+                              {s.active ? 'Desactivar' : 'Activar'}
+                            </button>
+                          </form>
+                          <DeleteButton action={removeService} id={s.id} confirmMessage="¿Estás seguro de eliminar este servicio? Se eliminarán todos sus turnos asociados." title="Eliminar Servicio" />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -489,7 +540,7 @@ export default async function AdminDashboard({
                   {services.filter((s: any) => s.active).length === 0 ? (
                     <div className="p-4 rounded-xl bg-amber-50 border border-amber-150 text-amber-800 text-xs font-semibold leading-relaxed">
                       ⚠️ <strong>No hay servicios activos:</strong><br />
-                      Debés crear al menos un servicio en la pestaña "Servicios" antes de poder registrar profesionales.
+                      Debés crear al menos un servicio en la pestaña &ldquo;Servicios&rdquo; antes de poder registrar profesionales.
                     </div>
                   ) : (
                     <form action={addProfessional} className="space-y-4">
@@ -545,16 +596,19 @@ export default async function AdminDashboard({
                           <p className="text-[11px] text-slate-400 mt-1">{p.email || 'Sin email registrado'}</p>
                         </div>
                         
-                        <form action={toggleProf}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <button type="submit" className={`text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-all ${
-                            p.active 
-                              ? 'bg-red-50 text-red-650 hover:bg-red-100 border border-red-100' 
-                              : 'bg-green-50 text-green-650 hover:bg-green-100 border border-green-100'
-                          }`}>
-                            {p.active ? 'Inactivar' : 'Activar'}
-                          </button>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          <form action={toggleProf}>
+                            <input type="hidden" name="id" value={p.id} />
+                            <button type="submit" className={`text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-all ${
+                              p.active 
+                                ? 'bg-red-50 text-red-650 hover:bg-red-100 border border-red-100' 
+                                : 'bg-green-50 text-green-650 hover:bg-green-100 border border-green-100'
+                            }`}>
+                              {p.active ? 'Inactivar' : 'Activar'}
+                            </button>
+                          </form>
+                          <DeleteButton action={removeProf} id={p.id} confirmMessage="¿Estás seguro de eliminar este profesional? Se eliminarán todos sus turnos asignados." title="Eliminar Profesional" />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -581,7 +635,7 @@ export default async function AdminDashboard({
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {turnos.map((t: any) => (
-                        <div key={t.id} className="p-4 rounded-xl border border-slate-150 bg-white flex flex-col justify-between gap-4 text-sm shadow-sm hover:shadow transition-all">
+                        <div key={t.id} className="p-4 rounded-xl border border-slate-150 bg-white flex flex-col gap-3 text-sm shadow-sm hover:shadow transition-all">
                           <div className="space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <span className="font-bold text-slate-900 line-clamp-1">{t.service?.name}</span>
@@ -606,12 +660,12 @@ export default async function AdminDashboard({
                               <div className="text-[11px] text-slate-650 bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-0.5">
                                 <p>👤 <strong>{t.client.name}</strong></p>
                                 <p className="text-slate-400 font-mono text-[10px]">{t.client.email}</p>
-                                {t.notas && <p className="mt-1 italic text-slate-500 font-sans border-t border-slate-100 pt-1">"{t.notas}"</p>}
+                                {t.notas && <p className="mt-1 italic text-slate-500 font-sans border-t border-slate-100 pt-1">&ldquo;{t.notas}&rdquo;</p>}
                               </div>
                             )}
                           </div>
-                          
-                          <div className="flex gap-2 justify-end border-t border-slate-50 pt-3 mt-auto">
+
+                          <div className="flex gap-2 items-center justify-end border-t border-slate-50 pt-2">
                             {t.estado === 'RESERVADO' && (
                               <form action={completeAppointment}>
                                 <input type="hidden" name="id" value={t.id} />
@@ -628,6 +682,7 @@ export default async function AdminDashboard({
                                 </button>
                               </form>
                             )}
+                            <DeleteButton action={removeTurno} id={t.id} confirmMessage="¿Estás seguro de eliminar este turno de la agenda?" title="Eliminar Turno" />
                           </div>
                         </div>
                       ))}
