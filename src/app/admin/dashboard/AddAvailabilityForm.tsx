@@ -1,43 +1,22 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState } from 'react';
 
 interface AddAvailabilityFormProps {
   services: any[];
   professionals: any[];
-  addAvailabilityAction: (formData: FormData) => Promise<{ success: boolean; error?: string; message?: string }>;
-  onSuccess?: (msg: string) => void;
-  onError?: (err: string) => void;
+  addAvailabilityAction: (formData: FormData) => Promise<void>;
 }
 
 export default function AddAvailabilityForm({
   services,
   professionals,
   addAvailabilityAction,
-  onSuccess,
-  onError,
 }: AddAvailabilityFormProps) {
   const [creationType, setCreationType] = useState<'individual' | 'range'>('individual');
-  const [isPending, startTransition] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget as HTMLFormElement);
-    startTransition(async () => {
-      const res = await addAvailabilityAction(fd);
-      if (res.success) {
-        formRef.current?.reset();
-        setCreationType('individual');
-        onSuccess?.(res.message || 'Disponibilidad creada con éxito.');
-      } else {
-        onError?.(res.error || 'Error al crear disponibilidad.');
-      }
-    });
-  }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+    <form action={addAvailabilityAction} className="space-y-4">
       <h3 className="font-title text-md text-primary font-bold mb-2">Agregar Disponibilidad</h3>
 
       <div>
@@ -170,10 +149,9 @@ export default function AddAvailabilityForm({
 
       <button
         type="submit"
-        disabled={isPending}
-        className="w-full bg-accent text-white p-2.5 rounded-lg text-sm font-bold shadow hover:bg-accent-light transition-all cursor-pointer disabled:opacity-60"
+        className="w-full bg-accent text-white p-2.5 rounded-lg text-sm font-bold shadow hover:bg-accent-light transition-all cursor-pointer"
       >
-        {isPending ? 'Generando...' : 'Generar Disponibilidad'}
+        Generar Disponibilidad
       </button>
     </form>
   );
