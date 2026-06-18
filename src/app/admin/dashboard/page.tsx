@@ -511,23 +511,36 @@ export default async function AdminDashboard({
                   <h3 className="font-title text-md text-primary font-bold mb-4">Profesionales Registrados</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {professionals.map((p: any) => (
-                      <div key={p.id} className={`p-4 rounded-xl border flex justify-between items-start text-sm shadow-sm hover:shadow transition-all ${p.active ? 'bg-white border-slate-150' : 'bg-slate-50 border-slate-200 opacity-65'}`}>
+                      <div key={p.id} className={`p-4 rounded-xl border flex flex-col gap-3 text-sm shadow-sm hover:shadow transition-all ${p.active ? 'bg-white border-slate-150' : 'bg-slate-50 border-slate-200 opacity-65'}`}>
+                        {/* Content */}
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2">
                             <h4 className="font-bold text-slate-900">{p.name}</h4>
                             {!p.active && <span className="bg-red-100 text-red-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0">Inactivo</span>}
                           </div>
                           {p.service && (
-                            <div className="text-[10px] text-primary font-bold bg-primary/5 border border-primary/10 px-2 py-0.5 rounded w-fit flex items-center gap-1">
-                              <span>🛠️ Servicio:</span><span>{p.service.name}</span>
+                            <div className="text-[10px] text-primary font-semibold bg-primary/5 border border-primary/15 px-2 py-0.5 rounded-md w-fit">
+                              <span className="text-primary/50 font-medium uppercase tracking-wide">Servicio · </span>{p.service.name}
                             </div>
                           )}
-                          <p className="text-[11px] text-slate-400 mt-1">{p.email || 'Sin email registrado'}</p>
+                          <p className="text-[11px] text-slate-400">{p.email || 'Sin email registrado'}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        {/* Actions */}
+                        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2">
                           <form action={toggleProf}>
                             <input type="hidden" name="id" value={p.id} />
-                            <button type="submit" className={`text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-all ${p.active ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-100'}`}>
+                            <button
+                              type="submit"
+                              title={p.active ? 'Inactivar profesional' : 'Activar profesional'}
+                              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-semibold cursor-pointer transition-all ${
+                                p.active
+                                  ? 'bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600'
+                                  : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-100'
+                              }`}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+                              </svg>
                               {p.active ? 'Inactivar' : 'Activar'}
                             </button>
                           </form>
