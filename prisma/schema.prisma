@@ -1,0 +1,147 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+  PROFESSIONAL
+}
+
+enum AccountStatus {
+  PENDING
+  EMAIL_VERIFIED
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum TurnoState {
+  DISPONIBLE
+  RESERVADO
+  CANCELADO
+  COMPLETADO
+}
+
+model User {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  hashedPassword String
+  name           String
+  role           Role           @default(CLIENT)
+  status         AccountStatus  @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  // Relaciones
+  turnosReservados Turno[]      @relation("ClienteTurnos")
+  turnosCreados    Turno[]      @relation("AdminTurnos")
+  
+  // FASE 2
+  subscriptions    Subscription[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model Professional {
+  id           String   @id @default(uuid())
+  name         String
+  specialty    String
+  email        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  serviceId    String
+  service      Service  @relation(fields: [serviceId], references: [id])
+  turnos       Turno[]
+
+  @@index([active])
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float    // Precio personalizable
+  duration    Int      // Duración en minutos
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  professionals Professional[]
+  turnos       Turno[]
+
+  @@index([active])
+}
+
+model Turno {
+  id             String       @id @default(uuid())
+  fechaInicio    DateTime
+  duracion       Int          // Heredado del servicio al reservar/crear
+  estado         TurnoState   @default(DISPONIBLE)
+  notas          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relación con Servicio
+  serviceId      String
+  service        Service      @relation(fields: [serviceId], references: [id])
+
+  // Relación con Profesional
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id])
+
+  // Relación con Cliente (quien reserva)
+  clientId       String?
+  client         User?        @relation("ClienteTurnos", fields: [clientId], references: [id])
+
+  // Relación con Administrador (quien crea)
+  createdById    String
+  createdBy      User         @relation("AdminTurnos", fields: [createdById], references: [id])
+
+  // Control de concurrencia optimista
+  version        Int          @default(0)
+
+  @@index([fechaInicio])
+  @@index([clientId])
+  @@index([estado])
+  @@index([professionalId])
+  @@index([serviceId])
+}
+
+// FASE 2: Planes y Suscripciones (Esqueleto)
+model Plan {
+  id          String         @id @default(uuid())
+  nombre      String
+  descripcion String
+  price       Float          @default(0) // precio en pesos
+  interval    String         @default("month") // month, year
+  features    String[]
+  activo      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  planId         String
+  plan           Plan      @relation(fields: [planId], references: [id])
+  estado         String    // ACTIVE, CANCELLED, PAST_DUE
+  fechaInicio    DateTime  @default(now())
+  fechaFin       DateTime?
+  paymentGateway String    @default("MERCADOPAGO")
+  gatewaySubId   String?   // ID de suscripción en la pasarela
+
+  @@index([userId])
+}
