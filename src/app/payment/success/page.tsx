@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import PaymentSuccessClient from './PaymentSuccessClient';
 
 export default function PaymentSuccessPage() {
-  return <PaymentSuccessClient />;
+  return (
+    <Suspense>
+      <PaymentSuccessClient />
+    </Suspense>
+  );
 }
