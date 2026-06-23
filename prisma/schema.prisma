@@ -103,6 +103,9 @@ model Turno {
   clientId       String?
   client         User?        @relation("ClienteTurnos", fields: [clientId], references: [id])
 
+  // Suscripción que financió esta reserva (para reintegro de crédito al cancelar)
+  subscriptionId String?
+
   // Relación con Administrador (quien crea)
   createdById    String
   createdBy      User         @relation("AdminTurnos", fields: [createdById], references: [id])
@@ -119,14 +122,15 @@ model Turno {
 
 // FASE 2: Planes y Suscripciones (Esqueleto)
 model Plan {
-  id          String         @id @default(uuid())
-  nombre      String
-  descripcion String
-  price       Float          @default(0) // precio en pesos
-  interval    String         @default("month") // month, year
-  features    String[]
-  activo      Boolean        @default(true)
-  createdAt   DateTime       @default(now())
+  id            String         @id @default(uuid())
+  nombre        String
+  descripcion   String
+  price         Float          @default(0) // precio en pesos
+  interval      String         @default("month") // month, year
+  features      String[]
+  limiteTurnos  Int            @default(1)
+  activo        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
   
   subscriptions Subscription[]
 }
@@ -138,6 +142,7 @@ model Subscription {
   planId         String
   plan           Plan      @relation(fields: [planId], references: [id])
   estado         String    // ACTIVE, CANCELLED, PAST_DUE
+  turnosRestantes Int      @default(0)
   fechaInicio    DateTime  @default(now())
   fechaFin       DateTime?
   paymentGateway String    @default("MERCADOPAGO")

@@ -1,8 +1,6 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { FEATURE_FLAGS } from './lib/flags';
-import { getMockDb } from './lib/mockDb';
 import { prisma } from './lib/db';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -21,31 +19,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = (credentials.email as string).toLowerCase().trim();
         const password = credentials.password as string;
 
-        let user = null;
-
-        if (FEATURE_FLAGS.USE_MOCK_DATA) {
-          const db = getMockDb();
-          user = db.users.find((u) => u.email.toLowerCase() === email);
-        } else {
-          user = await prisma.user.findUnique({
-            where: { email },
-          });
-        }
+        const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) {
           throw new Error('Usuario no encontrado');
         }
 
-        // Verify password (mock check vs real)
-        const passwordValid = await bcrypt.compare(
-          password,
-          user.hashedPassword || ''
-        );
+        const passwordValid = await bcrypt.compare(password, user.hashedPassword || '');
         if (!passwordValid) {
           throw new Error('Contraseña incorrecta');
         }
 
-        // Check account status
         if (user.status === 'PENDING') {
           throw new Error('Tu cuenta está registrada pero requiere verificar el correo.');
         }

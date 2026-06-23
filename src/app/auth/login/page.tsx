@@ -23,6 +23,8 @@ export default function LoginPage() {
     if (res.success) {
       if (res.role === 'ADMIN') {
         router.push('/admin/dashboard');
+      } else if (res.role === 'PROFESSIONAL') {
+        router.push('/professional/dashboard');
       } else {
         router.push('/client/dashboard');
       }

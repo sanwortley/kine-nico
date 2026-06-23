@@ -5,11 +5,13 @@ import { getSession } from '@/lib/session';
 import { getTurnos, reserveTurno, cancelTurno } from '@/modules/turnos/actions';
 import { getServices } from '@/modules/services-offered/actions';
 import { getProfessionals } from '@/modules/professionals/actions';
-import { getActiveSubscription, initiateCheckout } from '@/modules/billing/actions';
+import { getActiveSubscription, getPendingSubscription, initiateCheckout, initiateCheckoutCash } from '@/modules/billing/actions';
 import { getPlans } from '@/modules/plans/actions';
 import { FEATURE_FLAGS } from '@/lib/flags';
 import MobileMenu from '@/app/components/MobileMenu';
 import AgendaFilters from './AgendaFilters';
+import CalendarBooking from './CalendarBooking';
+import PaymentModal from './PaymentModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,13 +34,17 @@ export default async function ClientDashboard({
   const servicesRes = await getServices();
   const professionalsRes = await getProfessionals();
   const turnosRes = await getTurnos();
-  const subRes = await getActiveSubscription(session.id);
-  const plansRes = await getPlans(); // fetches plans list for Phase 2
+  const [subRes, pendingSubRes, plansRes] = await Promise.all([
+    getActiveSubscription(session.id),
+    getPendingSubscription(session.id),
+    getPlans(),
+  ]);
 
   const services = servicesRes.success ? servicesRes.services || [] : [];
   const professionals = professionalsRes.success ? professionalsRes.professionals || [] : [];
   const turnos = turnosRes.success ? turnosRes.turnos || [] : [];
   const activeSub = subRes.success ? subRes.subscription : null;
+  const pendingSub = pendingSubRes.success ? pendingSubRes.subscription : null;
   const plans = plansRes.success ? plansRes.plans || [] : [];
 
   const activeTab = params.tab || 'turnos';
@@ -374,83 +380,45 @@ export default async function ClientDashboard({
             {activeTab === 'reservar' && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                 <h2 className="font-title text-xl text-primary font-bold mb-4">Agendar un Nuevo Turno</h2>
-                
-                {/* Banner de Importes e Información de Reserva */}
-                <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-150 text-slate-700 text-xs leading-relaxed space-y-2">
-                  <div className="flex items-center gap-2 text-primary font-bold">
-                    <svg className="w-4 h-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>¡IMPORTANTE! Para Reservar</span>
+
+                {activeSub && activeSub.turnosRestantes > 0 ? (
+                  /* Modo calendario: paciente con suscripción activa */
+                  <CalendarBooking
+                    availableTurnos={turnos.filter((t: any) => t.estado === 'DISPONIBLE')}
+                    myTurnosDates={myTurnos.map((t: any) => t.fechaInicio)}
+                    turnosRestantes={activeSub.turnosRestantes}
+                    planNombre={(activeSub as any).plan?.nombre ?? null}
+                    clientId={session.id}
+                  />
+                ) : (
+                  /* Sin suscripción activa o sin sesiones: bloqueo total */
+                  <div className="flex flex-col items-center justify-center py-16 text-center gap-5">
+                    <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <div className="space-y-1.5 max-w-xs">
+                      <p className="font-bold text-slate-800 text-base">
+                        {activeSub ? 'Sin sesiones disponibles' : 'Necesitás un plan activo'}
+                      </p>
+                      <p className="text-sm text-slate-500 leading-relaxed">
+                        {activeSub
+                          ? 'Ya usaste todas las sesiones de tu plan. Contratá un nuevo plan para seguir reservando.'
+                          : 'Para ver y reservar turnos necesitás tener un plan activo. Elegí el plan que mejor se adapte a tus necesidades.'}
+                      </p>
+                    </div>
+                    <a
+                      href="/client/dashboard?tab=planes"
+                      className="inline-flex items-center gap-2 bg-accent hover:bg-accent-light text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Ver planes disponibles
+                    </a>
                   </div>
-                  <p>
-                    Las reservas tienen <strong>valor individual</strong>, por lo que recomendamos adquirir algún pack antes de reservar. Podés reservar por día o consultar con el profesional para casos especiales.
-                  </p>
-                  <p>
-                    Para las evaluaciones, <strong>pactá los horarios primero</strong> con el profesional. Cualquier duda podés consultar por WhatsApp o Instagram.
-                  </p>
-                </div>
-
-                {/* Filtros */}
-                <AgendaFilters 
-                  services={services}
-                  professionals={professionals}
-                  initialServiceId={params.serviceId || ''}
-                  initialProfessionalId={params.professionalId || ''}
-                />
-
-                {/* Grid de Turnos */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-700 mb-4">Turnos Disponibles</h3>
-                  {availableTurnos.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 text-sm">
-                      No se encontraron turnos disponibles con los filtros seleccionados.<br />
-                      Volvé a intentar con otros filtros o consultá más adelante.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {availableTurnos.map((t: any) => (
-                        <div key={t.id} className="p-5 rounded-2xl border border-slate-150 bg-white hover:border-accent hover:shadow-lg transition-all flex flex-col justify-between gap-4">
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-start gap-2">
-                              <div>
-                                <span className="font-title text-base font-bold text-slate-900 leading-tight block">{t.service?.name}</span>
-                                <p className="text-xs text-accent font-semibold mt-0.5">{t.professional?.name}</p>
-                              </div>
-                              <span className="bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0">{t.duracion} min</span>
-                            </div>
-                            
-                            {t.service?.description && (
-                              <p className="text-xs text-slate-500 leading-relaxed font-sans line-clamp-2">
-                                {t.service.description}
-                              </p>
-                            )}
-
-                            <div className="pt-2 flex items-center gap-1.5 text-xs font-mono text-slate-650 bg-slate-50 p-2.5 rounded-xl border border-slate-100/60">
-                              <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <span className="font-bold text-slate-700">{new Date(t.fechaInicio).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Argentina/Cordoba', hour12: false })} hs</span>
-                            </div>
-                          </div>
-                          
-                          <form action={bookAction} className="mt-2 pt-3 border-t border-slate-50 flex items-center gap-2">
-                            <input type="hidden" name="turnoId" value={t.id} />
-                            <input 
-                              type="text" 
-                              name="notes" 
-                              placeholder="Notas / Motivo de consulta (opcional)..." 
-                              className="flex-1 text-xs px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent focus:border-transparent transition-all" 
-                            />
-                            <button type="submit" className="bg-accent text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-accent-light transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0">
-                              Reservar
-                            </button>
-                          </form>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             )}
 
@@ -466,15 +434,39 @@ export default async function ClientDashboard({
                   <div className="p-6 rounded-2xl bg-gradient-to-br from-primary to-slate-900 text-white space-y-4 max-w-md">
                     <div>
                       <p className="text-xs text-slate-300">Plan Actualmente Activo</p>
-                      <h3 className="font-title text-xl font-bold mt-1">{activeSub.plan?.nombre}</h3>
+                      <h3 className="font-title text-xl font-bold mt-1">{(activeSub as any).plan?.nombre}</h3>
                     </div>
                     <div className="text-sm text-slate-200 font-mono space-y-1">
-                      <p>Precio: ${activeSub.plan?.price}/mes</p>
+                      <p>Precio: ${(activeSub as any).plan?.price}/mes</p>
                       <p>Inicio: {new Date(activeSub.fechaInicio).toLocaleDateString('es-AR')}</p>
+                      <p>Sesiones disponibles: <span className="text-accent-light font-bold">{(activeSub as any).turnosRestantes ?? 0}</span></p>
                     </div>
                     <div className="pt-4 border-t border-white/10 flex justify-between items-center text-xs">
-                      <span className="text-accent-light font-bold">✓ Suscripto por Mercado Pago</span>
+                      <span className="text-green-400 font-bold">✓ Plan activo</span>
                     </div>
+                  </div>
+                ) : pendingSub ? (
+                  <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 space-y-4 max-w-md">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Pago pendiente de confirmación</p>
+                        <h3 className="font-title text-lg font-bold text-slate-800 mt-0.5">{(pendingSub as any).plan?.nombre}</h3>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Tu solicitud fue registrada. El plan se activará ni bien el equipo confirme la recepción del pago (efectivo o transferencia).
+                    </p>
+                    <div className="bg-white rounded-xl p-4 border border-amber-100 text-sm space-y-1">
+                      <p className="text-slate-700"><span className="font-semibold">Plan:</span> {(pendingSub as any).plan?.nombre}</p>
+                      <p className="text-slate-700"><span className="font-semibold">Sesiones incluidas:</span> {(pendingSub as any).plan?.limiteTurnos ?? '?'}</p>
+                      <p className="text-slate-700"><span className="font-semibold">Precio:</span> ${(pendingSub as any).plan?.price?.toLocaleString('es-AR')}</p>
+                    </div>
+                    <p className="text-xs text-slate-400">¿Tenés dudas? Contactate con el centro para acelerar la confirmación.</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -499,13 +491,15 @@ export default async function ClientDashboard({
                           </div>
                           
                           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                            <span className="font-bold text-primary text-base">${p.price}/mes</span>
-                            <form action={subscribeAction}>
-                              <input type="hidden" name="planId" value={p.id} />
-                              <button type="submit" className="bg-accent text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-accent-light shadow transition-all cursor-pointer">
-                                Contratar
-                              </button>
-                            </form>
+                            <span className="font-bold text-primary text-base">
+                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(p.price)}
+                            </span>
+                            <PaymentModal
+                              plan={{ id: p.id, nombre: p.nombre, price: p.price, descripcion: p.descripcion, limiteTurnos: p.limiteTurnos }}
+                              clientId={session.id}
+                              checkoutCashAction={initiateCheckoutCash}
+                              checkoutMPAction={initiateCheckout}
+                            />
                           </div>
                         </div>
                       ))}

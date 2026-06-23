@@ -1,14 +1,18 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { getSession } from '@/lib/session';
 import { getAllUsers, updateAccountStatus, toggleUserRole, adminCreateUser, deleteUser } from '@/modules/auth/actions';
 import { getServices, createService, toggleServiceActive, deleteService } from '@/modules/services-offered/actions';
 import { getProfessionals, createProfessional, toggleProfessionalActive, deleteProfessional } from '@/modules/professionals/actions';
 import { getTurnos, createTurnoAvailability, cancelTurno, completeTurno, deleteTurno } from '@/modules/turnos/actions';
+import { getAdminSubscriptions, adminAssignPlan, adminAdjustCredits, adminConfirmPayment } from '@/modules/billing/actions';
+import { getPlans } from '@/modules/plans/actions';
 import AdminMobileMenu from '@/app/components/AdminMobileMenu';
 import AddAvailabilityForm from './AddAvailabilityForm';
 import DeleteButton from '@/app/components/DeleteButton';
+import AdminCalendar from './AdminCalendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,17 +29,32 @@ export default async function AdminDashboard({
   const params = await searchParams;
   const activeTab = params.tab || 'usuarios';
 
-  const [usersRes, servicesRes, professionalsRes, turnosRes] = await Promise.all([
+  const [usersRes, servicesRes, professionalsRes, turnosRes, subsRes, plansRes] = await Promise.all([
     getAllUsers(),
     getServices(),
     getProfessionals(),
     getTurnos(),
+    getAdminSubscriptions(),
+    getPlans(),
   ]);
 
   const users         = usersRes.success        ? usersRes.users        || [] : [];
   const services      = servicesRes.success     ? servicesRes.services   || [] : [];
   const professionals = professionalsRes.success ? professionalsRes.professionals || [] : [];
   const turnos        = turnosRes.success        ? turnosRes.turnos      || [] : [];
+  const allSubs       = subsRes.success          ? (subsRes as any).subscriptions || [] : [];
+  const plans         = plansRes.success         ? plansRes.plans        || [] : [];
+
+  const now = new Date();
+  // Map userId → active subscription (not expired)
+  const activeSubByUser = new Map<string, any>();
+  for (const s of allSubs) {
+    if (s.estado === 'ACTIVE' && (!s.fechaFin || new Date(s.fechaFin) > now)) {
+      if (!activeSubByUser.has(s.userId)) activeSubByUser.set(s.userId, s);
+    }
+  }
+  // Pending payment subscriptions (waiting for manual confirmation)
+  const pendingPaymentSubs = allSubs.filter((s: any) => s.estado === 'PENDING_PAYMENT');
 
   const pendingUsers = users.filter((u: any) => u.status === 'PENDING' || u.status === 'EMAIL_VERIFIED');
   const activeUsers  = users.filter((u: any) => u.status !== 'PENDING' && u.status !== 'EMAIL_VERIFIED');
@@ -150,44 +169,65 @@ export default async function AdminDashboard({
   async function removeUser(formData: FormData) {
     'use server';
     const id = formData.get('id') as string;
-    const res = await deleteUser(id);
-    if (res.success) {
-      redirect('/admin/dashboard?tab=usuarios&successMsg=Usuario eliminado correctamente.');
-    } else {
-      redirect(`/admin/dashboard?tab=usuarios&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
-    }
+    await deleteUser(id);
+    revalidatePath('/admin/dashboard');
   }
 
   async function removeService(formData: FormData) {
     'use server';
     const id = formData.get('id') as string;
-    const res = await deleteService(id);
-    if (res.success) {
-      redirect('/admin/dashboard?tab=servicios&successMsg=Servicio eliminado correctamente.');
-    } else {
-      redirect(`/admin/dashboard?tab=servicios&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
-    }
+    await deleteService(id);
+    revalidatePath('/admin/dashboard');
   }
 
   async function removeProf(formData: FormData) {
     'use server';
     const id = formData.get('id') as string;
-    const res = await deleteProfessional(id);
-    if (res.success) {
-      redirect('/admin/dashboard?tab=profesionales&successMsg=Profesional eliminado correctamente.');
-    } else {
-      redirect(`/admin/dashboard?tab=profesionales&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
-    }
+    await deleteProfessional(id);
+    revalidatePath('/admin/dashboard');
   }
 
   async function removeTurno(formData: FormData) {
     'use server';
     const id = formData.get('id') as string;
-    const res = await deleteTurno(id);
+    await deleteTurno(id);
+    revalidatePath('/admin/dashboard');
+  }
+
+  async function assignPlanAction(formData: FormData) {
+    'use server';
+    const userId       = formData.get('userId') as string;
+    const planId       = formData.get('planId') as string;
+    const customRaw    = formData.get('customCredits') as string;
+    const customCredits = customRaw ? parseInt(customRaw) : undefined;
+    const res = await adminAssignPlan(userId, planId, customCredits);
     if (res.success) {
-      redirect('/admin/dashboard?tab=turnos&successMsg=Turno eliminado de la agenda.');
+      redirect('/admin/dashboard?tab=usuarios&successMsg=Plan asignado correctamente.');
     } else {
-      redirect(`/admin/dashboard?tab=turnos&errorMsg=${encodeURIComponent(res.error || 'Error al eliminar.')}`);
+      redirect(`/admin/dashboard?tab=usuarios&errorMsg=${encodeURIComponent(res.error || 'Error al asignar plan.')}`);
+    }
+  }
+
+  async function adjustCreditsAction(formData: FormData) {
+    'use server';
+    const subscriptionId = formData.get('subscriptionId') as string;
+    const credits        = parseInt(formData.get('credits') as string);
+    const res = await adminAdjustCredits(subscriptionId, credits);
+    if (res.success) {
+      redirect('/admin/dashboard?tab=usuarios&successMsg=Sesiones ajustadas correctamente.');
+    } else {
+      redirect(`/admin/dashboard?tab=usuarios&errorMsg=${encodeURIComponent(res.error || 'Error al ajustar sesiones.')}`);
+    }
+  }
+
+  async function confirmPaymentAction(formData: FormData) {
+    'use server';
+    const subscriptionId = formData.get('subscriptionId') as string;
+    const res = await adminConfirmPayment(subscriptionId);
+    if (res.success) {
+      redirect('/admin/dashboard?tab=usuarios&successMsg=Pago confirmado. Plan activado correctamente.');
+    } else {
+      redirect(`/admin/dashboard?tab=usuarios&errorMsg=${encodeURIComponent(res.error || 'Error al confirmar pago.')}`);
     }
   }
 
@@ -407,6 +447,137 @@ export default async function AdminDashboard({
                       </table>
                     </div>
                   </div>
+
+                  {/* Pagos Pendientes de Confirmación */}
+                  {pendingPaymentSubs.length > 0 && (
+                    <div className="border-t border-slate-100 pt-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <h3 className="font-title text-md text-primary font-bold">Pagos Pendientes</h3>
+                        <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{pendingPaymentSubs.length}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-4">Estos clientes solicitaron un plan. Confirmá el pago una vez que recibas el dinero (efectivo, transferencia, etc.).</p>
+                      <div className="space-y-3">
+                        {pendingPaymentSubs.map((sub: any) => {
+                          const user = users.find((u: any) => u.id === sub.userId);
+                          const plan = plans.find((p: any) => p.id === sub.planId);
+                          return (
+                            <div key={sub.id} className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
+                                  <svg className="w-4 h-4 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-slate-800 truncate">{user?.name ?? 'Usuario'}</p>
+                                  <p className="text-xs text-slate-500 truncate">{user?.email} · {plan?.nombre ?? sub.planId}</p>
+                                  <p className="text-xs text-amber-700 font-semibold mt-0.5">
+                                    {plan?.price != null ? `$${plan.price.toLocaleString('es-AR')}` : 'Precio no disponible'} · {plan?.limiteTurnos ?? '?'} sesiones
+                                  </p>
+                                </div>
+                              </div>
+                              <form action={confirmPaymentAction}>
+                                <input type="hidden" name="subscriptionId" value={sub.id} />
+                                <button
+                                  type="submit"
+                                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Confirmar pago
+                                </button>
+                              </form>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Planes y Sesiones */}
+                  <div className="border-t border-slate-100 pt-8">
+                    <h3 className="font-title text-md text-primary font-bold mb-4">Planes y Sesiones</h3>
+                    <div className="space-y-3">
+                      {activeUsers.filter((u: any) => u.role === 'CLIENT').map((u: any) => {
+                        const sub = activeSubByUser.get(u.id);
+                        return (
+                          <div key={u.id} className="bg-slate-50 rounded-xl border border-slate-100 p-4 space-y-3">
+                            {/* User info + current plan */}
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                              <div>
+                                <p className="text-sm font-bold text-slate-900">{u.name}</p>
+                                <p className="text-xs text-slate-500">{u.email}</p>
+                              </div>
+                              {sub ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-slate-600">{sub.plan?.nombre}</span>
+                                  <span className="bg-accent/15 text-accent text-xs font-bold px-2.5 py-1 rounded-full">
+                                    {sub.turnosRestantes} sesión{sub.turnosRestantes !== 1 ? 'es' : ''}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400 italic">Sin plan activo</span>
+                              )}
+                            </div>
+
+                            {/* Forms row */}
+                            <div className="flex flex-wrap gap-3 items-end">
+                              {/* Assign plan */}
+                              <form action={assignPlanAction} className="flex items-end gap-2 flex-wrap">
+                                <input type="hidden" name="userId" value={u.id} />
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Asignar Plan</label>
+                                  <select name="planId" required className="text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-primary">
+                                    {(plans as any[]).filter((p: any) => p.activo).map((p: any) => (
+                                      <option key={p.id} value={p.id}>{p.nombre} ({p.limiteTurnos} ses.)</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Créditos custom</label>
+                                  <input
+                                    name="customCredits"
+                                    type="number"
+                                    min="0"
+                                    placeholder="Def. del plan"
+                                    className="text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white w-28 focus:outline-none focus:ring-1 focus:ring-primary"
+                                  />
+                                </div>
+                                <button type="submit" className="text-xs px-3 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition-all cursor-pointer">
+                                  Asignar
+                                </button>
+                              </form>
+
+                              {/* Adjust existing credits */}
+                              {sub && (
+                                <form action={adjustCreditsAction} className="flex items-end gap-2">
+                                  <input type="hidden" name="subscriptionId" value={sub.id} />
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Ajustar sesiones</label>
+                                    <input
+                                      name="credits"
+                                      type="number"
+                                      min="0"
+                                      defaultValue={sub.turnosRestantes}
+                                      className="text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white w-20 focus:outline-none focus:ring-1 focus:ring-accent"
+                                    />
+                                  </div>
+                                  <button type="submit" className="text-xs px-3 py-2 bg-accent text-white rounded-lg font-bold hover:bg-accent-light transition-all cursor-pointer">
+                                    Guardar
+                                  </button>
+                                </form>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {activeUsers.filter((u: any) => u.role === 'CLIENT').length === 0 && (
+                        <p className="text-sm text-slate-400 italic">No hay pacientes activos.</p>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -566,59 +737,21 @@ export default async function AdminDashboard({
 
                 <div className="lg:col-span-2">
                   <h3 className="font-title text-md text-primary font-bold mb-4">Agenda General</h3>
-                  {turnos.length === 0 ? (
-                    <p className="text-sm text-slate-400 py-4 italic">No hay turnos configurados aún.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {turnos.map((t: any) => (
-                        <div key={t.id} className="p-4 rounded-xl border border-slate-150 bg-white flex flex-col gap-3 text-sm shadow-sm hover:shadow transition-all">
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="font-bold text-slate-900 line-clamp-1">{t.service?.name}</span>
-                              <span className={`inline-flex px-2 py-0.5 text-[9px] font-bold rounded-full shrink-0 ${
-                                t.estado === 'DISPONIBLE' ? 'bg-green-100 text-green-800' :
-                                t.estado === 'RESERVADO'  ? 'bg-blue-100 text-blue-800' :
-                                t.estado === 'COMPLETADO' ? 'bg-slate-100 text-slate-800' : 'bg-red-100 text-red-800'
-                              }`}>{t.estado}</span>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-xs text-accent font-semibold">{t.professional?.name}</p>
-                              <p className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                                <span>📅</span>
-                                <span>{new Date(t.fechaInicio).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Argentina/Cordoba', hour12: false })} hs</span>
-                              </p>
-                            </div>
-                            {t.client && (
-                              <div className="text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-0.5">
-                                <p>👤 <strong>{t.client.name}</strong></p>
-                                <p className="text-slate-400 font-mono text-[10px]">{t.client.email}</p>
-                                {t.notas && <p className="mt-1 italic text-slate-500 border-t border-slate-100 pt-1">&ldquo;{t.notas}&rdquo;</p>}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex gap-2 items-center justify-end border-t border-slate-50 pt-2">
-                            {t.estado === 'RESERVADO' && (
-                              <form action={completeAppointment}>
-                                <input type="hidden" name="id" value={t.id} />
-                                <button type="submit" className="text-xs bg-green-50 text-green-600 border border-green-150 px-2.5 py-1.5 rounded-lg font-bold hover:bg-green-100 transition-all cursor-pointer">
-                                  Completar
-                                </button>
-                              </form>
-                            )}
-                            {t.estado !== 'CANCELADO' && t.estado !== 'COMPLETADO' && (
-                              <form action={cancelAppointment}>
-                                <input type="hidden" name="id" value={t.id} />
-                                <button type="submit" className="text-xs bg-red-50 text-red-600 border border-red-150 px-2.5 py-1.5 rounded-lg font-bold hover:bg-red-100 transition-all cursor-pointer">
-                                  Cancelar
-                                </button>
-                              </form>
-                            )}
-                            <DeleteButton action={removeTurno} id={t.id} confirmMessage="¿Estás seguro de eliminar este turno de la agenda?" title="Eliminar Turno" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <AdminCalendar
+                    turnos={turnos.map((t: any) => ({
+                      id: t.id,
+                      fechaInicio: new Date(t.fechaInicio).toISOString(),
+                      duracion: t.duracion,
+                      estado: t.estado,
+                      notas: t.notas ?? null,
+                      service: { name: t.service?.name ?? '' },
+                      professional: { name: t.professional?.name ?? '' },
+                      client: t.client ? { name: t.client.name, email: t.client.email } : null,
+                    }))}
+                    completeAction={completeAppointment}
+                    cancelAction={cancelAppointment}
+                    deleteAction={removeTurno}
+                  />
                 </div>
               </div>
             )}
