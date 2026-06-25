@@ -241,9 +241,18 @@ export default async function AdminDashboard({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image src="/logo.png" alt="Nicolas Jaled Kine Logo" width={48} height={48} className="object-contain" unoptimized />
-            <div>
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-title text-base sm:text-lg text-primary font-bold">Nicolas Jaled Kine</span>
-              <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 uppercase font-subtitle tracking-wider">Admin Panel</span>
+              <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase font-subtitle tracking-wider whitespace-nowrap">Admin Panel</span>
+              <Link
+                href="/professional/evaluaciones"
+                className="bg-accent/10 text-accent text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap hover:bg-accent/20 transition-colors hidden sm:inline-flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Dinamometrías
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
