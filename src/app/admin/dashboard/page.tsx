@@ -889,12 +889,7 @@ export default async function AdminDashboard({
                                   {p.activo ? 'Desactivar' : 'Activar'}
                                 </button>
                               </form>
-                              <form action={deletePlanAction} onSubmit={(e) => { if (!confirm('¿Eliminar este plan?')) e.preventDefault(); }}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <button type="submit" className="text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer bg-slate-50 text-slate-500 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100">
-                                  Eliminar
-                                </button>
-                              </form>
+                              <DeleteButton action={deletePlanAction} id={p.id} confirmMessage="¿Eliminar este plan? Se perderán las suscripciones asociadas." title="Eliminar Plan" />
                             </div>
                           </div>
                           {/* Formulario de edición */}
