@@ -50,10 +50,10 @@ export default function PaymentSuccessClient() {
 
         {/* Texto */}
         <div className="space-y-2">
-          <h1 className="font-title text-2xl font-bold text-slate-900">¡Pago confirmado!</h1>
+          <h1 className="font-title text-2xl font-bold text-slate-900">¡Pago recibido!</h1>
           <p className="text-slate-500 text-sm leading-relaxed">
             Tu pago por <strong className="text-primary">{planName}</strong> fue procesado correctamente.
-            Tu plan estará activo en instantes.
+            Tu plan quedará <strong>pendiente de confirmación</strong> por el administrador.
           </p>
         </div>
 

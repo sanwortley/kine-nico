@@ -9,37 +9,24 @@ export async function initiateCheckout(planId: string, userId: string) {
     const plan = await prisma.plan.findUnique({ where: { id: planId } });
     if (!plan) return { success: false, error: 'Plan no encontrado' };
 
-    // Cancel any existing active or pending subscription
-    await prisma.subscription.updateMany({
-      where: { userId, estado: { in: ['ACTIVE', 'PENDING_PAYMENT'] } },
-      data: { estado: 'CANCELLED', fechaFin: new Date() },
-    });
-
-    // Create subscription in PENDING_PAYMENT state
-    const sub = await prisma.subscription.create({
-      data: { userId, planId, estado: 'PENDING_PAYMENT', turnosRestantes: plan.limiteTurnos, paymentGateway: 'MERCADOPAGO' },
-    });
-
     const mpAccessToken = process.env.MP_ACCESS_TOKEN;
 
-    // No MP credentials → return app redirect (dev / manual-payment mode)
     if (!mpAccessToken) {
       const appReturn = `/client/dashboard?tab=planes&successMsg=${encodeURIComponent('Tu solicitud fue registrada. El plan se activará cuando se confirme el pago.')}`;
       return { success: true, initPoint: appReturn, isPending: true };
     }
 
-    // Real Mercado Pago checkout
     const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const prefResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${mpAccessToken}` },
       body: JSON.stringify({
         items: [{ title: plan.nombre, description: plan.descripcion, quantity: 1, currency_id: 'ARS', unit_price: plan.price }],
-        external_reference: sub.id,
+        external_reference: `${planId}:${userId}`,
         back_urls: {
           success: `${appBaseUrl}/payment/success?plan=${encodeURIComponent(plan.nombre)}`,
           failure: `${appBaseUrl}/client/dashboard?tab=planes&errorMsg=${encodeURIComponent('El pago no pudo procesarse. Intentá de nuevo.')}`,
-          pending: `${appBaseUrl}/client/dashboard?tab=planes&successMsg=${encodeURIComponent('Tu pago está siendo procesado. Te avisaremos cuando esté confirmado.')}`,
+          pending: `${appBaseUrl}/payment/success?plan=${encodeURIComponent(plan.nombre)}&pending=true`,
         },
         auto_return: 'approved',
         notification_url: `${appBaseUrl}/api/webhooks/mercadopago`,
@@ -52,13 +39,34 @@ export async function initiateCheckout(planId: string, userId: string) {
     }
 
     const pref = await prefResponse.json();
-    await prisma.subscription.update({ where: { id: sub.id }, data: { gatewaySubId: pref.id } });
-
     const initPoint = process.env.MP_SANDBOX === 'true' ? pref.sandbox_init_point : pref.init_point;
     return { success: true, initPoint };
   } catch (error: any) {
     console.error('Error in initiateCheckout', error);
     return { success: false, error: error.message || 'Error al iniciar el checkout' };
+  }
+}
+
+export async function createPendingSubscriptionFromPayment(planId: string, userId: string, gatewayPaymentId: string) {
+  try {
+    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan) return;
+
+    await prisma.subscription.updateMany({
+      where: { userId, estado: { in: ['ACTIVE', 'PENDING_PAYMENT'] } },
+      data: { estado: 'CANCELLED', fechaFin: new Date() },
+    });
+
+    await prisma.subscription.create({
+      data: {
+        userId, planId, estado: 'PENDING_PAYMENT',
+        turnosRestantes: plan.limiteTurnos,
+        paymentGateway: 'MERCADOPAGO',
+        gatewaySubId: gatewayPaymentId,
+      },
+    });
+  } catch (error) {
+    console.error('Error in createPendingSubscriptionFromPayment', error);
   }
 }
 

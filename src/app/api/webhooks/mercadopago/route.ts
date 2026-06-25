@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { adminConfirmPayment } from '@/modules/billing/actions';
+import { createPendingSubscriptionFromPayment } from '@/modules/billing/actions';
 
 function verifySignature(rawBody: string, signature: string, requestId: string, webhookSecret: string): boolean {
   try {
@@ -18,15 +18,10 @@ function verifySignature(rawBody: string, signature: string, requestId: string, 
   }
 }
 
-async function activateByPayment(paymentId: string, externalReference?: string): Promise<void> {
-  if (externalReference) {
-    await adminConfirmPayment(externalReference);
-    return;
-  }
-
+async function handlePayment(paymentId: string): Promise<void> {
   const mpAccessToken = process.env.MP_ACCESS_TOKEN;
   if (!mpAccessToken) {
-    console.error('[MP Webhook] MP_ACCESS_TOKEN not set — cannot look up payment');
+    console.error('[MP Webhook] MP_ACCESS_TOKEN not set');
     return;
   }
 
@@ -41,17 +36,19 @@ async function activateByPayment(paymentId: string, externalReference?: string):
 
   const payment = await res.json();
   if (payment.status !== 'approved') {
-    console.log(`[MP Webhook] Payment ${paymentId} not approved (status: ${payment.status}) — skipping`);
+    console.log(`[MP Webhook] Payment ${paymentId} status: ${payment.status} — skipping`);
     return;
   }
 
-  const subscriptionId = payment.external_reference as string | undefined;
-  if (!subscriptionId) {
-    console.error('[MP Webhook] Payment has no external_reference — cannot activate subscription');
+  const externalReference = payment.external_reference as string | undefined;
+  if (!externalReference || !externalReference.includes(':')) {
+    console.error('[MP Webhook] Invalid external_reference:', externalReference);
     return;
   }
 
-  await adminConfirmPayment(subscriptionId);
+  const [planId, userId] = externalReference.split(':');
+  await createPendingSubscriptionFromPayment(planId, userId, String(paymentId));
+  console.log(`[MP Webhook] PENDING_PAYMENT subscription created — plan:${planId} user:${userId}`);
 }
 
 export async function POST(req: NextRequest) {
@@ -78,16 +75,16 @@ export async function POST(req: NextRequest) {
 
   if (payload.type === 'payment' && payload.data?.id) {
     try {
-      await activateByPayment(String(payload.data.id), payload.data?.external_reference as string | undefined);
+      await handlePayment(String(payload.data.id));
     } catch (err) {
-      console.error('[MP Webhook] Error activating subscription:', err);
+      console.error('[MP Webhook] Error handling payment:', err);
     }
   }
 
   if (payload.topic === 'payment' && payload.resource) {
     try {
       const paymentId = String(payload.resource).split('/').pop();
-      if (paymentId) await activateByPayment(paymentId);
+      if (paymentId) await handlePayment(paymentId);
     } catch (err) {
       console.error('[MP Webhook] Error processing IPN:', err);
     }
@@ -101,11 +98,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
   }
 
-  const subscriptionId = req.nextUrl.searchParams.get('subscriptionId');
-  if (!subscriptionId) {
-    return NextResponse.json({ error: 'Missing subscriptionId' }, { status: 400 });
+  const planId = req.nextUrl.searchParams.get('planId');
+  const userId = req.nextUrl.searchParams.get('userId');
+  if (!planId || !userId) {
+    return NextResponse.json({ error: 'Missing planId or userId' }, { status: 400 });
   }
 
-  const result = await adminConfirmPayment(subscriptionId);
-  return NextResponse.json(result);
+  await createPendingSubscriptionFromPayment(planId, userId, 'dev-test');
+  return NextResponse.json({ success: true });
 }
