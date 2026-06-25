@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getSession } from '@/lib/session';
 import { getAllUsers, updateAccountStatus, toggleUserRole, adminCreateUser, deleteUser } from '@/modules/auth/actions';
-import { getServices, createService, toggleServiceActive, deleteService } from '@/modules/services-offered/actions';
+import { getServices, createService, updateService, toggleServiceActive, deleteService } from '@/modules/services-offered/actions';
 import { getProfessionals, createProfessional, toggleProfessionalActive, deleteProfessional } from '@/modules/professionals/actions';
 import { getTurnos, createTurnoAvailability, cancelTurno, completeTurno, deleteTurno } from '@/modules/turnos/actions';
 import { getAdminSubscriptions, adminAssignPlan, adminAdjustCredits, adminConfirmPayment } from '@/modules/billing/actions';
@@ -97,6 +97,14 @@ export default async function AdminDashboard({
     } else {
       redirect(`/admin/dashboard?tab=servicios&errorMsg=${encodeURIComponent(res.error || 'Error al crear.')}`);
     }
+  }
+
+  async function updateServiceAction(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    await updateService(id, formData);
+    revalidatePath('/admin/dashboard');
+    redirect('/admin/dashboard?tab=servicios');
   }
 
   async function toggleService(formData: FormData) {
@@ -695,6 +703,38 @@ export default async function AdminDashboard({
                             <DeleteButton action={removeService} id={s.id} confirmMessage="¿Eliminar este servicio?" title="Eliminar Servicio" />
                           </div>
                         </div>
+                        <details className="border-t border-slate-100">
+                          <summary className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-primary cursor-pointer select-none flex items-center gap-1.5 list-none">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Editar datos
+                          </summary>
+                          <form action={updateServiceAction} className="px-4 pb-4 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/50">
+                            <input type="hidden" name="id" value={s.id} />
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Nombre</label>
+                              <input name="name" defaultValue={s.name} required className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Precio $</label>
+                              <input name="price" type="number" min="0" step="100" defaultValue={s.price} required className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Duración (min)</label>
+                              <input name="duration" type="number" min="1" defaultValue={s.duration} required className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Descripción</label>
+                              <textarea name="description" defaultValue={s.description ?? ''} rows={3} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <button type="submit" className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold shadow hover:bg-secondary transition-all cursor-pointer">
+                                Guardar cambios
+                              </button>
+                            </div>
+                          </form>
+                        </details>
                       </div>
                     ))}
                   </div>
