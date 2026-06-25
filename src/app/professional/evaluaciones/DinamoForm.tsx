@@ -24,6 +24,7 @@ export interface DinamoRow {
 
 interface Props {
   clients: Client[];
+  prevRows?: DinamoRow[];
   saveAction:   (data: DinamoInput) => Promise<{ success: boolean; error?: string }>;
   updateAction: (id: string, data: DinamoInput) => Promise<{ success: boolean; error?: string }>;
   initialData?: DinamoRow | null;
@@ -133,7 +134,10 @@ function rowToVals(r: DinamoRow): typeof initVals {
 
 // ── Componente principal ────────────────────────────────────────────────────────
 
-export default function DinamoForm({ clients, saveAction, updateAction, initialData, onEditDone }: Props) {
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fmtF(iso: string) { const d = new Date(iso); return `${d.getUTCDate()} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`; }
+
+export default function DinamoForm({ clients, prevRows = [], saveAction, updateAction, initialData, onEditDone }: Props) {
   const isEdit = !!initialData;
   const [open, setOpen] = useState(isEdit);
   const [clientId, setClientId] = useState(initialData?.clientId ?? '');
@@ -241,6 +245,30 @@ export default function DinamoForm({ clients, saveAction, updateAction, initialD
                 className="w-full h-9 px-3 rounded-lg border border-slate-200 text-sm text-slate-700 focus:outline-none focus:border-primary bg-white" />
             </div>
           </div>
+
+          {/* Panel: última evaluación del paciente seleccionado */}
+          {(() => {
+            if (!clientId || isEdit) return null;
+            const last = prevRows
+              .filter(r => r.clientId === clientId)
+              .sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+            if (!last) return null;
+            const cuadPct   = pct(last.cuadDer ?? undefined,   last.cuadIzq ?? undefined);
+            const isquioPct = pct(last.isquioDer ?? undefined, last.isquioIzq ?? undefined);
+            const abdPct    = pct(last.abdDer ?? undefined,    last.abdIzq ?? undefined);
+            return (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-blue-700 mb-2">Última evaluación — {fmtF(last.fecha)}</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                  {cuadPct   !== null && <span>Cuád: <strong>{cuadPct}%</strong></span>}
+                  {isquioPct !== null && <span>Isquio: <strong>{isquioPct}%</strong></span>}
+                  {abdPct    !== null && <span>Abd: <strong>{abdPct}%</strong></span>}
+                  {last.velocidadSquat  && <span>VSquat: <strong>{last.velocidadSquat} m/s</strong></span>}
+                  {last.peso            && <span>Peso: <strong>{last.peso} kg</strong></span>}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Datos corporales</p>

@@ -27,6 +27,7 @@ export default function EvalPageClient({ clients, rows }: Props) {
       <DinamoForm
         key={editRow?.id ?? 'new'}
         clients={clients}
+        prevRows={rows}
         saveAction={saveDinamometria}
         updateAction={updateDinamometria}
         initialData={editRow}
