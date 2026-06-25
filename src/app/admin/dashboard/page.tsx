@@ -666,24 +666,34 @@ export default async function AdminDashboard({
                   <h3 className="font-title text-md text-primary font-bold mb-4">Servicios Configurados</h3>
                   <div className="space-y-4">
                     {services.map((s: any) => (
-                      <div key={s.id} className="p-4 rounded-xl border border-slate-150 bg-white flex justify-between items-center text-sm shadow-sm">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900">{s.name}</span>
-                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{s.duration} min</span>
+                      <div key={s.id} className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-800 text-sm">{s.name}</span>
+                              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full shrink-0">{s.duration} min</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${s.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                {s.active ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </div>
+                            {s.description && (
+                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{s.description}</p>
+                            )}
+                            <p className="text-xs font-bold text-primary mt-1">${s.price.toLocaleString('es-AR')}</p>
                           </div>
-                          <p className="text-xs text-slate-500 mt-1">{s.description || 'Sin descripción'}</p>
-                          <p className="text-xs font-bold text-primary mt-2">Precio: ${s.price.toLocaleString('es-AR')}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <form action={toggleService}>
-                            <input type="hidden" name="id" value={s.id} />
-                            <input type="hidden" name="active" value={s.active ? 'false' : 'true'} />
-                            <button type="submit" className={`text-xs px-3 py-1.5 rounded-lg font-bold cursor-pointer ${s.active ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
-                              {s.active ? 'Desactivar' : 'Activar'}
-                            </button>
-                          </form>
-                          <DeleteButton action={removeService} id={s.id} confirmMessage="¿Estás seguro de eliminar este servicio? Se eliminarán todos sus turnos asociados." title="Eliminar Servicio" />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <form action={toggleService}>
+                              <input type="hidden" name="id" value={s.id} />
+                              <input type="hidden" name="active" value={s.active ? 'false' : 'true'} />
+                              <button type="submit" title={s.active ? 'Desactivar' : 'Activar'}
+                                className={`p-2 rounded-lg transition-colors cursor-pointer ${s.active ? 'text-green-500 hover:bg-red-50 hover:text-red-500' : 'text-slate-400 hover:bg-green-50 hover:text-green-600'}`}>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+                                </svg>
+                              </button>
+                            </form>
+                            <DeleteButton action={removeService} id={s.id} confirmMessage="¿Eliminar este servicio?" title="Eliminar Servicio" />
+                          </div>
                         </div>
                       </div>
                     ))}
