@@ -352,37 +352,28 @@ export default function FichaForm({ clients, saveAction }: Props) {
             {activeTab === 'ROM' && (
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-3">Puntuación: 0 = dolor · 1 = no pasa · 2 = con compensación · 3 = correcto</p>
-                <div className="space-y-1">
-                  {/* Header */}
-                  <div className="grid grid-cols-[1fr_60px_60px_60px_100px] gap-2 text-[10px] text-slate-400 uppercase tracking-wider font-bold px-1 pb-1">
-                    <span>Prueba</span><span className="text-center">Der</span><span className="text-center">Izq</span><span className="text-center">Total</span><span>Obs.</span>
-                  </div>
-                  {rom.map((r, i) => (
-                    <div key={r.prueba} className="grid grid-cols-[1fr_60px_60px_60px_100px] gap-2 items-center py-2 border-b border-slate-50 last:border-0">
-                      <span className="text-xs text-slate-700 font-medium leading-tight">{r.prueba}</span>
-                      <input
-                        type="number" min="0" max="3" value={r.der} onChange={e => setRomField(i, 'der', e.target.value)}
-                        className="h-8 w-full text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary"
-                      />
-                      <input
-                        type="number" min="0" max="3" value={r.izq} onChange={e => setRomField(i, 'izq', e.target.value)}
-                        className="h-8 w-full text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary"
-                      />
-                      <input
-                        type="number" min="0" max="3" value={r.total} onChange={e => setRomField(i, 'total', e.target.value)}
-                        className="h-8 w-full text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary"
-                      />
-                      <input
-                        type="text" value={r.obs} onChange={e => setRomField(i, 'obs', e.target.value)} placeholder="—"
-                        className="h-8 w-full px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-primary"
-                      />
+                <div className="overflow-x-auto -mx-1">
+                  <div className="min-w-[540px] px-1 space-y-1">
+                    <div className="grid grid-cols-[1fr_56px_56px_56px_96px] gap-2 text-[10px] text-slate-400 uppercase tracking-wider font-bold px-1 pb-1">
+                      <span>Prueba</span><span className="text-center">Der</span><span className="text-center">Izq</span><span className="text-center">Total</span><span>Obs.</span>
                     </div>
-                  ))}
-                  <div className="pt-2 flex justify-between text-xs text-slate-500">
-                    <span>Total ROM:</span>
-                    <span className="font-bold text-slate-800">
-                      {rom.reduce((s, r) => s + (parseInt(r.total) || 0), 0)} / {ROM_PRUEBAS.length * 3}
-                    </span>
+                    {rom.map((r, i) => (
+                      <div key={r.prueba} className="grid grid-cols-[1fr_56px_56px_56px_96px] gap-2 items-center py-2 border-b border-slate-50 last:border-0">
+                        <span className="text-xs text-slate-700 font-medium leading-tight">{r.prueba}</span>
+                        <input type="number" min="0" max="3" value={r.der} onChange={e => setRomField(i, 'der', e.target.value)}
+                          className="h-8 w-full text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
+                        <input type="number" min="0" max="3" value={r.izq} onChange={e => setRomField(i, 'izq', e.target.value)}
+                          className="h-8 w-full text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
+                        <input type="number" min="0" max="3" value={r.total} onChange={e => setRomField(i, 'total', e.target.value)}
+                          className="h-8 w-full text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
+                        <input type="text" value={r.obs} onChange={e => setRomField(i, 'obs', e.target.value)} placeholder="—"
+                          className="h-8 w-full px-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-primary" />
+                      </div>
+                    ))}
+                    <div className="pt-2 flex justify-between text-xs text-slate-500">
+                      <span>Total ROM:</span>
+                      <span className="font-bold text-slate-800">{rom.reduce((s, r) => s + (parseInt(r.total) || 0), 0)} / {ROM_PRUEBAS.length * 3}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -392,34 +383,36 @@ export default function FichaForm({ clients, saveAction }: Props) {
             {activeTab === 'Fuerza' && (
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-3">1RM estimado con fórmula de Epley: peso × (1 + reps/30)</p>
-                <div className="space-y-1">
-                  <div className="grid grid-cols-[1fr_80px_60px_80px_60px_90px] gap-2 text-[10px] text-slate-400 uppercase tracking-wider font-bold px-1 pb-1">
-                    <span>Ejercicio</span><span>Peso (kg)</span><span>Reps</span><span>1RM est.</span><span>%PC</span><span>Nivel</span>
+                <div className="overflow-x-auto -mx-1">
+                  <div className="min-w-[480px] px-1 space-y-1">
+                    <div className="grid grid-cols-[140px_72px_56px_72px_56px_84px] gap-2 text-[10px] text-slate-400 uppercase tracking-wider font-bold px-1 pb-1">
+                      <span>Ejercicio</span><span>Peso (kg)</span><span>Reps</span><span>1RM est.</span><span>%PC</span><span>Nivel</span>
+                    </div>
+                    {fuerza.map((f, i) => {
+                      const rm = calc1rm(f.peso, f.reps);
+                      const pctPC = pesoN && rm ? Math.round(parseFloat(rm) / pesoN * 100) : null;
+                      const nivel = pctPC ? calcNivel(pctPC) : '—';
+                      const nivelColor = nivel === 'Elite' ? 'text-purple-600' : nivel === 'Avanzado' ? 'text-blue-600' : nivel === 'Intermedio' ? 'text-green-600' : nivel === 'Principiante' ? 'text-amber-600' : 'text-slate-400';
+                      return (
+                        <div key={f.ejercicio} className="grid grid-cols-[140px_72px_56px_72px_56px_84px] gap-2 items-center py-2 border-b border-slate-50 last:border-0">
+                          <span className="text-xs text-slate-700 font-medium leading-tight">{f.ejercicio}</span>
+                          <input type="number" value={f.peso} onChange={e => setFuerzaField(i, 'peso', e.target.value)} placeholder="—"
+                            className="h-8 w-full px-2 text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
+                          <input type="number" value={f.reps} onChange={e => setFuerzaField(i, 'reps', e.target.value)} placeholder="—"
+                            className="h-8 w-full px-2 text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
+                          <div className="h-8 flex items-center justify-center text-sm font-bold text-primary bg-primary/5 rounded-lg">
+                            {rm || '—'}<span className="text-[10px] text-slate-400 ml-0.5">kg</span>
+                          </div>
+                          <div className="h-8 flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-50 rounded-lg">
+                            {pctPC ? `${pctPC}%` : '—'}
+                          </div>
+                          <div className={`h-8 flex items-center justify-center text-xs font-bold ${nivelColor}`}>
+                            {nivel}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  {fuerza.map((f, i) => {
-                    const rm = calc1rm(f.peso, f.reps);
-                    const pctPC = pesoN && rm ? Math.round(parseFloat(rm) / pesoN * 100) : null;
-                    const nivel = pctPC ? calcNivel(pctPC) : '—';
-                    const nivelColor = nivel === 'Elite' ? 'text-purple-600' : nivel === 'Avanzado' ? 'text-blue-600' : nivel === 'Intermedio' ? 'text-green-600' : nivel === 'Principiante' ? 'text-amber-600' : 'text-slate-400';
-                    return (
-                      <div key={f.ejercicio} className="grid grid-cols-[1fr_80px_60px_80px_60px_90px] gap-2 items-center py-2 border-b border-slate-50 last:border-0">
-                        <span className="text-xs text-slate-700 font-medium leading-tight">{f.ejercicio}</span>
-                        <input type="number" value={f.peso} onChange={e => setFuerzaField(i, 'peso', e.target.value)} placeholder="—"
-                          className="h-8 w-full px-2 text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
-                        <input type="number" value={f.reps} onChange={e => setFuerzaField(i, 'reps', e.target.value)} placeholder="—"
-                          className="h-8 w-full px-2 text-center rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-primary" />
-                        <div className="h-8 flex items-center justify-center text-sm font-bold text-primary bg-primary/5 rounded-lg">
-                          {rm || '—'} <span className="text-[10px] text-slate-400 ml-0.5">kg</span>
-                        </div>
-                        <div className="h-8 flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-50 rounded-lg">
-                          {pctPC ? `${pctPC}%` : '—'}
-                        </div>
-                        <div className={`h-8 flex items-center justify-center text-xs font-bold ${nivelColor}`}>
-                          {nivel}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
                 {!datos.peso && (
                   <p className="text-xs text-amber-600 mt-2">* Ingresá el peso corporal en "Datos" para calcular el % PC</p>
