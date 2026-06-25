@@ -75,9 +75,15 @@ function DetailRow({ label, der, izq, unit = 'N', extraLabel, extraValue }: {
   );
 }
 
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fmtFecha(iso: string) {
+  const d = new Date(iso);
+  return `${d.getUTCDate()} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
 function RowCard({ r }: { r: Row }) {
   const [open, setOpen] = useState(false);
-  const fecha = new Date(r.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fecha = fmtFecha(r.fecha);
   const imcVal = imc(r.peso, r.altura);
 
   // Resumen para la card cerrada
