@@ -366,8 +366,8 @@ export default async function AdminDashboard({
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          {/* Mobile + Desktop tab bar (scrollable on small screens) */}
-          <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto scrollbar-none">
+          {/* Desktop tab bar */}
+          <div className="hidden md:flex border-b border-slate-100 bg-slate-50/50">
             {['usuarios', 'servicios', 'planes', 'profesionales', 'turnos', 'configuracion'].map((tab) => (
               <Link
                 key={tab}
