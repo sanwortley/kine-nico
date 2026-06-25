@@ -358,12 +358,13 @@ export default async function AdminDashboard({
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="hidden md:flex border-b border-slate-100 bg-slate-50/50">
+          {/* Mobile + Desktop tab bar (scrollable on small screens) */}
+          <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto scrollbar-none">
             {['usuarios', 'servicios', 'planes', 'profesionales', 'turnos', 'configuracion'].map((tab) => (
               <Link
                 key={tab}
                 href={`/admin/dashboard?tab=${tab}`}
-                className={`flex-1 text-center py-4 text-sm font-bold font-title border-b-2 capitalize transition-all ${
+                className={`shrink-0 px-4 text-center py-4 text-sm font-bold font-title border-b-2 capitalize transition-all whitespace-nowrap ${
                   activeTab === tab
                     ? 'border-primary text-primary bg-white'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/20'
