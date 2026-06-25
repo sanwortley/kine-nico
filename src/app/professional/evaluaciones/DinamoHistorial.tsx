@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 interface Row {
   id: string;
+  clientId: string;
   fecha: string;
   notas?: string | null;
   client: { name: string };
@@ -81,7 +82,7 @@ function fmtFecha(iso: string) {
   return `${d.getUTCDate()} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-function RowCard({ r }: { r: Row }) {
+function RowCard({ r, onEdit }: { r: Row; onEdit: (row: Row) => void }) {
   const [open, setOpen] = useState(false);
   const fecha = fmtFecha(r.fecha);
   const imcVal = imc(r.peso, r.altura);
@@ -97,29 +98,31 @@ function RowCard({ r }: { r: Row }) {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      {/* Header — siempre visible, clickeable */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full text-left px-4 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
-      >
-        <div>
-          <p className="font-semibold text-slate-800 text-sm">{r.client.name}</p>
-          <p className="text-xs text-slate-400">{fecha}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-            {summaryItems.map((s, i) => (
-              <span key={i}>{s}</span>
-            ))}
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3.5">
+        <button onClick={() => setOpen(o => !o)} className="flex-1 text-left flex items-center gap-3 min-w-0">
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-800 text-sm truncate">{r.client.name}</p>
+            <p className="text-xs text-slate-400">{fecha}</p>
           </div>
-          <svg
-            className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden sm:flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+              {summaryItems.map((s, i) => <span key={i}>{s}</span>)}
+            </div>
+            <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+        <button onClick={() => onEdit(r)}
+          className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
+          title="Editar evaluación">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Detalle expandido */}
       {open && (
@@ -191,7 +194,7 @@ function RowCard({ r }: { r: Row }) {
   );
 }
 
-export default function DinamoHistorial({ rows }: { rows: Row[] }) {
+export default function DinamoHistorial({ rows, onEdit }: { rows: Row[]; onEdit: (row: Row) => void }) {
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -253,7 +256,7 @@ export default function DinamoHistorial({ rows }: { rows: Row[] }) {
         <p className="text-sm text-slate-400 text-center py-6">Sin resultados para ese filtro</p>
       ) : (
         <div className="space-y-2">
-          {filtered.map(r => <RowCard key={r.id} r={{ ...r, fecha: r.fecha.toString() }} />)}
+          {filtered.map(r => <RowCard key={r.id} r={{ ...r, fecha: r.fecha.toString() }} onEdit={onEdit} />)}
         </div>
       )}
     </section>

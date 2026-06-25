@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 interface Row {
   id: string;
+  clientId: string;
   fecha: string;
   client: { name: string };
   peso?: number | null;
@@ -54,7 +55,7 @@ function KV({ label, value }: { label: string; value?: string | number | null })
   );
 }
 
-function RowCard({ r }: { r: Row }) {
+function RowCard({ r, onEdit }: { r: Row; onEdit: (row: Row) => void }) {
   const [open, setOpen] = useState(false);
   const imcVal = imc(r.peso, r.altura);
   const romTotal = Array.isArray(r.romTests)
@@ -83,6 +84,15 @@ function RowCard({ r }: { r: Row }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
+        </button>
+        <button
+          onClick={() => onEdit(r)}
+          className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
+          title="Editar ficha"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
         </button>
         <a
           href={`/api/ficha/export?fichaId=${r.id}`}
@@ -185,7 +195,7 @@ function RowCard({ r }: { r: Row }) {
   );
 }
 
-export default function FichaHistorial({ rows }: { rows: Row[] }) {
+export default function FichaHistorial({ rows, onEdit }: { rows: Row[]; onEdit: (row: Row) => void }) {
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -225,7 +235,7 @@ export default function FichaHistorial({ rows }: { rows: Row[] }) {
 
       {filtered.length === 0
         ? <p className="text-sm text-slate-400 text-center py-6">Sin resultados para ese filtro</p>
-        : <div className="space-y-2">{filtered.map(r => <RowCard key={r.id} r={{ ...r, fecha: r.fecha.toString() }} />)}</div>
+        : <div className="space-y-2">{filtered.map(r => <RowCard key={r.id} r={{ ...r, fecha: r.fecha.toString() }} onEdit={onEdit} />)}</div>
       }
     </section>
   );

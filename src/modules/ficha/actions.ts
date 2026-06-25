@@ -62,6 +62,40 @@ export async function saveFicha(data: FichaInput) {
   }
 }
 
+export async function updateFicha(id: string, data: FichaInput) {
+  try {
+    await prisma.fichaEvaluacion.update({
+      where: { id },
+      data: {
+        fecha:             new Date(data.fecha),
+        peso:              n(data.peso),
+        altura:            n(data.altura),
+        sexo:              data.sexo || null,
+        grasaEst:          n(data.grasaEst),
+        deporte:           data.deporte || null,
+        catPeso:           data.catPeso || null,
+        historia:          data.historia ?? undefined,
+        romTests:          data.romTests ?? undefined,
+        fuerzaTests:       data.fuerzaTests ?? undefined,
+        capacidadTests:    data.capacidadTests ?? undefined,
+        dinamoExt:         data.dinamoExt ?? undefined,
+        fortalezas:        data.fortalezas || null,
+        debilidades:       data.debilidades || null,
+        prioridades:       data.prioridades || null,
+        restricciones:     data.restricciones || null,
+        objetivos12sem:    data.objetivos12sem || null,
+        fechaReevaluacion: data.fechaReevaluacion ? new Date(data.fechaReevaluacion) : null,
+        notas:             data.notas || null,
+      },
+    });
+    revalidatePath('/professional/ficha');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error in updateFicha', error);
+    return { success: false, error: error.message || 'Error al actualizar' };
+  }
+}
+
 export async function getFichas(clientId?: string) {
   try {
     const rows = await prisma.fichaEvaluacion.findMany({

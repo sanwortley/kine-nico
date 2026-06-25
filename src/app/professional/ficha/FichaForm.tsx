@@ -5,10 +5,27 @@ import type { FichaInput, RomTest, FuerzaTest } from '@/modules/ficha/actions';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
+interface FichaRowInit {
+  id: string;
+  clientId: string;
+  fecha: string;
+  client: { name: string };
+  peso?: number | null; altura?: number | null; sexo?: string | null;
+  grasaEst?: number | null; deporte?: string | null; catPeso?: string | null;
+  historia?: any; romTests?: any; fuerzaTests?: any;
+  capacidadTests?: any; dinamoExt?: any;
+  fortalezas?: string | null; debilidades?: string | null; prioridades?: string | null;
+  restricciones?: string | null; objetivos12sem?: string | null;
+  fechaReevaluacion?: string | null; notas?: string | null;
+}
+
 interface Props {
   clients: { id: string; name: string }[];
-  saveAction: (data: FichaInput) => Promise<{ success: boolean; error?: string }>;
+  saveAction:   (data: FichaInput) => Promise<{ success: boolean; error?: string }>;
+  updateAction: (id: string, data: FichaInput) => Promise<{ success: boolean; error?: string }>;
   getLastDinamoAction: (clientId: string) => Promise<{ success: boolean; data: any | null }>;
+  initialData?: FichaRowInit | null;
+  onEditDone?: () => void;
 }
 
 const TABS = ['Datos', 'Historial', 'ROM', 'Fuerza', 'Capacidad', 'Observaciones'] as const;
@@ -166,49 +183,72 @@ function DiffBadge({ a, b }: { a: string; b: string }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function FichaForm({ clients, saveAction, getLastDinamoAction }: Props) {
-  const [open, setOpen] = useState(false);
+export default function FichaForm({ clients, saveAction, updateAction, getLastDinamoAction, initialData, onEditDone }: Props) {
+  const isEdit = !!initialData;
+  const [open, setOpen] = useState(isEdit);
   const [activeTab, setActiveTab] = useState<Tab>('Datos');
-  const [clientId, setClientId] = useState('');
+  const [clientId, setClientId] = useState(initialData?.clientId ?? '');
   const [autoFilled, setAutoFilled] = useState(false);
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(() => initialData?.fecha?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
+  const s = (v: number | string | null | undefined) => (v != null ? String(v) : '');
+
   // Datos básicos
-  const [datos, setDatos] = useState({ peso: '', altura: '', sexo: '', grasaEst: '', deporte: '', catPeso: '' });
+  const [datos, setDatos] = useState(() => initialData ? {
+    peso: s(initialData.peso), altura: s(initialData.altura),
+    sexo: initialData.sexo ?? '', grasaEst: s(initialData.grasaEst),
+    deporte: initialData.deporte ?? '', catPeso: initialData.catPeso ?? '',
+  } : { peso: '', altura: '', sexo: '', grasaEst: '', deporte: '', catPeso: '' });
   const setD = (k: keyof typeof datos, v: string) => setDatos(p => ({ ...p, [k]: v }));
 
   // Historia
-  const [hist, setHist] = useState({
-    anosEntrenando: '', lesionesPasadas: '', lesionesActivas: '', limitaciones: '',
-    medicacion: '', cirugias: '', deportePrevio: '', frecuencia: '', ultimaCompetencia: '', objetivo: '',
-  });
-  const setH = (k: keyof typeof hist, v: string) => setHist(p => ({ ...p, [k]: v }));
+  const emptyHist = { anosEntrenando: '', lesionesPasadas: '', lesionesActivas: '', limitaciones: '', medicacion: '', cirugias: '', deportePrevio: '', frecuencia: '', ultimaCompetencia: '', objetivo: '' };
+  const [hist, setHist] = useState<typeof emptyHist>(() =>
+    initialData?.historia ? { ...emptyHist, ...initialData.historia } : emptyHist
+  );
+  const setH = (k: keyof typeof emptyHist, v: string) => setHist(p => ({ ...p, [k]: v }));
 
   // ROM
-  const [rom, setRom] = useState<RomTest[]>(initRom);
+  const [rom, setRom] = useState<RomTest[]>(() =>
+    initialData?.romTests?.length ? initialData.romTests : initRom()
+  );
   const setRomField = (i: number, k: keyof RomTest, v: string) =>
     setRom(prev => prev.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
 
   // Fuerza
-  const [fuerza, setFuerza] = useState<FuerzaTest[]>(initFuerza);
+  const [fuerza, setFuerza] = useState<FuerzaTest[]>(() =>
+    initialData?.fuerzaTests?.length ? initialData.fuerzaTests : initFuerza()
+  );
   const setFuerzaField = (i: number, k: keyof FuerzaTest, v: string) =>
     setFuerza(prev => prev.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
 
   // Capacidad
-  const [cap, setCap] = useState<Record<string, string>>({});
+  const [cap, setCap] = useState<Record<string, string>>(() =>
+    initialData?.capacidadTests
+      ? Object.fromEntries(Object.entries(initialData.capacidadTests).map(([k, v]) => [k, String(v)]))
+      : {}
+  );
   const setCF = (k: string, v: string) => setCap(p => ({ ...p, [k]: v }));
 
   // Dinamometría extendida
-  const [dinamo, setDinamo] = useState<Record<string, string>>({});
+  const [dinamo, setDinamo] = useState<Record<string, string>>(() =>
+    initialData?.dinamoExt
+      ? Object.fromEntries(Object.entries(initialData.dinamoExt).map(([k, v]) => [k, String(v)]))
+      : {}
+  );
   const setDinamoF = (k: string, v: string) => setDinamo(p => ({ ...p, [k]: v }));
 
   // Observaciones
-  const [obs, setObs] = useState({
-    fortalezas: '', debilidades: '', prioridades: '', restricciones: '', objetivos12sem: '', fechaReevaluacion: '', notas: '',
-  });
+  const [obs, setObs] = useState(() => initialData ? {
+    fortalezas: initialData.fortalezas ?? '', debilidades: initialData.debilidades ?? '',
+    prioridades: initialData.prioridades ?? '', restricciones: initialData.restricciones ?? '',
+    objetivos12sem: initialData.objetivos12sem ?? '',
+    fechaReevaluacion: initialData.fechaReevaluacion?.slice(0, 10) ?? '',
+    notas: initialData.notas ?? '',
+  } : { fortalezas: '', debilidades: '', prioridades: '', restricciones: '', objetivos12sem: '', fechaReevaluacion: '', notas: '' });
   const setO = (k: keyof typeof obs, v: string) => setObs(p => ({ ...p, [k]: v }));
 
   // Auto-populate desde última dinamometría al cambiar paciente
@@ -252,40 +292,52 @@ export default function FichaForm({ clients, saveAction, getLastDinamoAction }: 
     setActiveTab('Datos');
   }
 
+  function buildPayload(): FichaInput {
+    return {
+      clientId, fecha,
+      peso: pesoN || undefined, altura: parseFloat(datos.altura) || undefined,
+      sexo: datos.sexo || undefined, grasaEst: parseFloat(datos.grasaEst) || undefined,
+      deporte: datos.deporte || undefined, catPeso: datos.catPeso || undefined,
+      historia: hist, romTests: rom, fuerzaTests: fuerza,
+      capacidadTests: cap, dinamoExt: dinamo,
+      ...obs, fechaReevaluacion: obs.fechaReevaluacion || undefined,
+    };
+  }
+
   function handleSave() {
     if (!clientId) { setError('Seleccioná un paciente'); return; }
     setError('');
     startTransition(async () => {
-      const res = await saveAction({
-        clientId, fecha,
-        peso: pesoN || undefined, altura: parseFloat(datos.altura) || undefined,
-        sexo: datos.sexo || undefined, grasaEst: parseFloat(datos.grasaEst) || undefined,
-        deporte: datos.deporte || undefined, catPeso: datos.catPeso || undefined,
-        historia: hist,
-        romTests: rom,
-        fuerzaTests: fuerza,
-        capacidadTests: cap,
-        dinamoExt: dinamo,
-        ...obs,
-        fechaReevaluacion: obs.fechaReevaluacion || undefined,
-      });
-      if (res.success) { setSaved(true); reset(); setOpen(false); }
-      else setError(res.error || 'Error al guardar');
+      const res = isEdit
+        ? await updateAction(initialData!.id, buildPayload())
+        : await saveAction(buildPayload());
+      if (res.success) {
+        if (isEdit) { onEditDone?.(); }
+        else { setSaved(true); reset(); setOpen(false); }
+      } else {
+        setError(res.error || 'Error al guardar');
+      }
     });
   }
 
   return (
     <div className="space-y-4">
-      {/* Trigger */}
-      <button
-        onClick={() => { setOpen(o => !o); setSaved(false); setError(''); }}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-primary hover:text-primary transition-all text-sm font-semibold w-full justify-center"
-      >
-        <span className={`text-lg leading-none transition-transform ${open ? 'rotate-45' : ''}`}>+</span>
-        {open ? 'Cancelar' : 'Nueva ficha'}
-      </button>
+      {isEdit ? (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+          <p className="text-sm font-semibold text-amber-800">Editando ficha de <span className="font-bold">{initialData!.client.name}</span></p>
+          <button onClick={onEditDone} className="text-xs text-amber-600 hover:text-amber-800 font-bold">Cancelar</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setOpen(o => !o); setSaved(false); setError(''); }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-primary hover:text-primary transition-all text-sm font-semibold w-full justify-center"
+        >
+          <span className={`text-lg leading-none transition-transform ${open ? 'rotate-45' : ''}`}>+</span>
+          {open ? 'Cancelar' : 'Nueva ficha'}
+        </button>
+      )}
 
-      {saved && !open && (
+      {saved && !open && !isEdit && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-700 font-semibold">✓ Ficha guardada correctamente</div>
       )}
 
@@ -295,14 +347,20 @@ export default function FichaForm({ clients, saveAction, getLastDinamoAction }: 
           <div className="px-4 pt-4 pb-3 border-b border-slate-100 flex flex-wrap gap-3">
             <div className="flex-1 min-w-[180px]">
               <Field label="Paciente">
-                <select
-                  value={clientId}
-                  onChange={e => setClientId(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-slate-200 text-sm text-slate-700 focus:outline-none focus:border-primary bg-white"
-                >
-                  <option value="">Seleccioná un paciente...</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                {isEdit ? (
+                  <div className="h-9 flex items-center px-3 rounded-lg border border-slate-100 bg-slate-50 text-sm font-medium text-slate-600">
+                    {initialData!.client.name}
+                  </div>
+                ) : (
+                  <select
+                    value={clientId}
+                    onChange={e => setClientId(e.target.value)}
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 text-sm text-slate-700 focus:outline-none focus:border-primary bg-white"
+                  >
+                    <option value="">Seleccioná un paciente...</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                )}
               </Field>
             </div>
             <div className="min-w-[140px]">
@@ -542,7 +600,7 @@ export default function FichaForm({ clients, saveAction, getLastDinamoAction }: 
                   disabled={isPending}
                   className="px-5 py-2 rounded-xl bg-primary text-white font-bold text-sm shadow-sm hover:bg-secondary transition-all disabled:opacity-50"
                 >
-                  {isPending ? 'Guardando...' : 'Guardar ficha'}
+                  {isPending ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Guardar ficha'}
                 </button>
               )}
             </div>

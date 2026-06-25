@@ -57,6 +57,40 @@ export async function saveDinamometria(data: DinamoInput) {
   }
 }
 
+export async function updateDinamometria(id: string, data: DinamoInput) {
+  try {
+    await prisma.dinamometria.update({
+      where: { id },
+      data: {
+        fecha:          new Date(data.fecha),
+        notas:          data.notas || null,
+        peso:           num(data.peso),
+        altura:         num(data.altura),
+        cuadDer:        num(data.cuadDer),
+        cuadIzq:        num(data.cuadIzq),
+        isquioDer:      num(data.isquioDer),
+        isquioIzq:      num(data.isquioIzq),
+        abdDer:         num(data.abdDer),
+        abdIzq:         num(data.abdIzq),
+        addDer:         num(data.addDer),
+        addIzq:         num(data.addIzq),
+        eversorDer:     num(data.eversorDer),
+        eversorIzq:     num(data.eversorIzq),
+        romCaderaDer:   num(data.romCaderaDer),
+        romCaderaIzq:   num(data.romCaderaIzq),
+        romTobilloDer:  num(data.romTobilloDer),
+        romTobilloIzq:  num(data.romTobilloIzq),
+        velocidadSquat: num(data.velocidadSquat),
+      },
+    });
+    revalidatePath('/professional/evaluaciones');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error in updateDinamometria', error);
+    return { success: false, error: error.message || 'Error al actualizar' };
+  }
+}
+
 export async function getDinamometrias(clientId?: string) {
   try {
     const rows = await prisma.dinamometria.findMany({
