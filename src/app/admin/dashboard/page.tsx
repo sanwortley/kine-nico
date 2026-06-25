@@ -911,7 +911,7 @@ export default async function AdminDashboard({
                   ) : (
                     <div className="space-y-4">
                       {(plans as any[]).map((p: any) => (
-                        <div key={p.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <div key={p.id} className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${p.activo ? 'bg-white border-slate-100' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
                           {/* Header */}
                           <div className="flex items-center gap-3 px-4 pt-4 pb-3">
                             <div className="flex-1 min-w-0">
