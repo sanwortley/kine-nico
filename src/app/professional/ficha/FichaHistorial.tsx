@@ -67,22 +67,35 @@ function RowCard({ r }: { r: Row }) {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full text-left px-4 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
-      >
-        <div>
-          <p className="font-semibold text-slate-800 text-sm">{r.client.name}</p>
-          <p className="text-xs text-slate-400">{fmtFecha(r.fecha)}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {summary && <p className="hidden sm:block text-xs text-slate-400">{summary}</p>}
-          <svg className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      <div className="flex items-center gap-2 px-4 py-3.5">
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex-1 text-left flex items-center gap-3 min-w-0"
+        >
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-800 text-sm truncate">{r.client.name}</p>
+            <p className="text-xs text-slate-400">{fmtFecha(r.fecha)}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {summary && <p className="hidden sm:block text-xs text-slate-400">{summary}</p>}
+            <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+        <a
+          href={`/api/ficha/export?fichaId=${r.id}`}
+          download
+          className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors"
+          title="Descargar Excel"
+          onClick={e => e.stopPropagation()}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-        </div>
-      </button>
+        </a>
+      </div>
 
       {open && (
         <div className="border-t border-slate-100 px-4 pb-5">

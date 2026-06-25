@@ -77,6 +77,18 @@ export async function getFichas(clientId?: string) {
   }
 }
 
+export async function getLastDinamometria(clientId: string) {
+  try {
+    const d = await prisma.dinamometria.findFirst({
+      where: { clientId },
+      orderBy: { fecha: 'desc' },
+    });
+    return { success: true, data: d };
+  } catch {
+    return { success: true, data: null };
+  }
+}
+
 export async function getClients() {
   try {
     const clients = await prisma.user.findMany({

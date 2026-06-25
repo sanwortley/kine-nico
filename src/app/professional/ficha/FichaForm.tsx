@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import type { FichaInput, RomTest, FuerzaTest } from '@/modules/ficha/actions';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -8,6 +8,7 @@ import type { FichaInput, RomTest, FuerzaTest } from '@/modules/ficha/actions';
 interface Props {
   clients: { id: string; name: string }[];
   saveAction: (data: FichaInput) => Promise<{ success: boolean; error?: string }>;
+  getLastDinamoAction: (clientId: string) => Promise<{ success: boolean; data: any | null }>;
 }
 
 const TABS = ['Datos', 'Historial', 'ROM', 'Fuerza', 'Capacidad', 'Observaciones'] as const;
@@ -165,10 +166,11 @@ function DiffBadge({ a, b }: { a: string; b: string }) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function FichaForm({ clients, saveAction }: Props) {
+export default function FichaForm({ clients, saveAction, getLastDinamoAction }: Props) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('Datos');
   const [clientId, setClientId] = useState('');
+  const [autoFilled, setAutoFilled] = useState(false);
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -208,6 +210,33 @@ export default function FichaForm({ clients, saveAction }: Props) {
     fortalezas: '', debilidades: '', prioridades: '', restricciones: '', objetivos12sem: '', fechaReevaluacion: '', notas: '',
   });
   const setO = (k: keyof typeof obs, v: string) => setObs(p => ({ ...p, [k]: v }));
+
+  // Auto-populate desde última dinamometría al cambiar paciente
+  useEffect(() => {
+    if (!clientId || !open) return;
+    setAutoFilled(false);
+    getLastDinamoAction(clientId).then(({ data: d }) => {
+      if (!d) return;
+      setDatos(prev => ({
+        ...prev,
+        peso: d.peso != null ? String(d.peso) : prev.peso,
+        altura: d.altura != null ? String(Math.round(d.altura * 100)) : prev.altura,
+      }));
+      const keys = ['cuad','isquio','abd','add','eversor'] as const;
+      setDinamo(prev => {
+        const next = { ...prev };
+        keys.forEach(k => {
+          if (d[`${k}Der`] != null) next[`${k}Der`] = String(d[`${k}Der`]);
+          if (d[`${k}Izq`] != null) next[`${k}Izq`] = String(d[`${k}Izq`]);
+        });
+        return next;
+      });
+      if (d.velocidadSquat != null) {
+        setCap(prev => ({ ...prev, velSquat: String(d.velocidadSquat) }));
+      }
+      setAutoFilled(true);
+    });
+  }, [clientId, open]);
 
   // Cálculos en vivo — Datos
   const pesoN = parseFloat(datos.peso);
@@ -306,6 +335,11 @@ export default function FichaForm({ clients, saveAction }: Props) {
             {/* ── TAB: Datos personales ─────────────────────── */}
             {activeTab === 'Datos' && (
               <>
+                {autoFilled && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs text-blue-700 font-medium">
+                    Peso, altura y dinamometría pre-cargados desde la última evaluación del paciente
+                  </div>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <Field label="Peso (kg)"><Input value={datos.peso} onChange={v => setD('peso', v)} placeholder="—" type="number" /></Field>
                   <Field label="Altura (cm)"><Input value={datos.altura} onChange={v => setD('altura', v)} placeholder="—" type="number" /></Field>

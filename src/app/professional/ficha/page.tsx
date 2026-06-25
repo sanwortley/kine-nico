@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
-import { getClients, getFichas, saveFicha } from '@/modules/ficha/actions';
+import { getClients, getFichas, saveFicha, getLastDinamometria } from '@/modules/ficha/actions';
 import FichaForm from './FichaForm';
 import FichaHistorial from './FichaHistorial';
 import Link from 'next/link';
@@ -34,7 +34,7 @@ export default async function FichaPage() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        <FichaForm clients={clients} saveAction={saveFicha} />
+        <FichaForm clients={clients} saveAction={saveFicha} getLastDinamoAction={getLastDinamometria} />
         <FichaHistorial rows={rows.map((r: any) => ({
           ...r,
           fecha: r.fecha.toISOString(),
