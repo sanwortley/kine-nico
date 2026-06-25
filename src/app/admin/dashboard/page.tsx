@@ -571,26 +571,26 @@ export default async function AdminDashboard({
                             </div>
 
                             {/* Forms row */}
-                            <div className="flex flex-wrap gap-3 items-end">
+                            <div className="flex flex-col gap-3">
                               {/* Assign plan */}
-                              <form action={assignPlanAction} className="flex items-end gap-2 flex-wrap">
+                              <form action={assignPlanAction} className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
                                 <input type="hidden" name="userId" value={u.id} />
-                                <div>
+                                <div className="min-w-0">
                                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Asignar Plan</label>
-                                  <select name="planId" required className="text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-primary">
+                                  <select name="planId" required className="w-full text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-primary truncate">
                                     {(plans as any[]).filter((p: any) => p.activo).map((p: any) => (
                                       <option key={p.id} value={p.id}>{p.nombre} ({p.limiteTurnos} ses.)</option>
                                     ))}
                                   </select>
                                 </div>
-                                <div>
+                                <div className="shrink-0">
                                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Créditos custom</label>
                                   <input
                                     name="customCredits"
                                     type="number"
                                     min="0"
                                     placeholder="Def. del plan"
-                                    className="text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white w-28 focus:outline-none focus:ring-1 focus:ring-primary"
+                                    className="text-xs px-2.5 py-2 border border-slate-200 rounded-lg bg-white w-24 focus:outline-none focus:ring-1 focus:ring-primary"
                                   />
                                 </div>
                                 <button type="submit" className="text-xs px-3 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition-all cursor-pointer">
@@ -861,41 +861,54 @@ export default async function AdminDashboard({
                   ) : (
                     <div className="space-y-4">
                       {(plans as any[]).map((p: any) => (
-                        <div key={p.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-                          {/* Vista compacta */}
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-800">{p.nombre}</span>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <div key={p.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                          {/* Header */}
+                          <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-800 text-sm">{p.nombre}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${p.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                                   {p.activo ? 'Activo' : 'Inactivo'}
                                 </span>
                               </div>
-                              <p className="text-xs text-slate-500 mt-0.5">{p.descripcion}</p>
-                              <div className="flex gap-3 mt-1 text-xs text-slate-600">
+                              {p.descripcion && <p className="text-xs text-slate-500 mt-0.5 truncate">{p.descripcion}</p>}
+                              <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-600">
                                 <span className="font-bold text-primary">${(p.price ?? 0).toLocaleString('es-AR')}</span>
-                                <span>· {p.limiteTurnos} sesiones</span>
-                                <span>· {p.interval === 'month' ? 'Mensual' : p.interval === 'week' ? 'Semanal' : 'Anual'}</span>
+                                <span className="text-slate-400">·</span>
+                                <span>{p.limiteTurnos} ses.</span>
+                                <span className="text-slate-400">·</span>
+                                <span>{p.interval === 'month' ? 'Mensual' : p.interval === 'week' ? 'Semanal' : 'Anual'}</span>
                               </div>
                               {p.features?.length > 0 && (
-                                <p className="text-[10px] text-slate-400 mt-1">{p.features.join(' · ')}</p>
+                                <p className="text-[10px] text-slate-400 mt-1 truncate">{p.features.join(' · ')}</p>
                               )}
                             </div>
-                            <div className="flex gap-2 shrink-0">
+                            {/* Acciones — solo iconos */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {/* Toggle activo */}
                               <form action={togglePlanActiveAction}>
                                 <input type="hidden" name="id" value={p.id} />
                                 <input type="hidden" name="activo" value={String(p.activo)} />
-                                <button type="submit" className={`text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer border ${p.activo ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'}`}>
-                                  {p.activo ? 'Desactivar' : 'Activar'}
+                                <button type="submit" title={p.activo ? 'Desactivar' : 'Activar'}
+                                  className={`p-2 rounded-lg transition-colors cursor-pointer ${p.activo ? 'text-green-500 hover:bg-red-50 hover:text-red-500' : 'text-slate-400 hover:bg-green-50 hover:text-green-600'}`}>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+                                  </svg>
                                 </button>
                               </form>
-                              <DeleteButton action={deletePlanAction} id={p.id} confirmMessage="¿Eliminar este plan? Se perderán las suscripciones asociadas." title="Eliminar Plan" />
+                              {/* Eliminar */}
+                              <DeleteButton action={deletePlanAction} id={p.id} confirmMessage="¿Eliminar este plan?" title="Eliminar Plan" />
                             </div>
                           </div>
-                          {/* Formulario de edición */}
-                          <details className="mt-2">
-                            <summary className="text-xs text-slate-400 cursor-pointer hover:text-primary font-medium select-none">✏ Editar datos</summary>
-                            <form action={updatePlanAction} className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Editar (desplegable) */}
+                          <details className="border-t border-slate-100">
+                            <summary className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-primary cursor-pointer select-none flex items-center gap-1.5 list-none">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Editar datos
+                            </summary>
+                            <form action={updatePlanAction} className="px-4 pb-4 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/50">
                               <input type="hidden" name="id" value={p.id} />
                               <div>
                                 <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Nombre</label>
@@ -916,7 +929,7 @@ export default async function AdminDashboard({
                                 <input name="descripcion" defaultValue={p.descripcion} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Beneficios (separados por coma)</label>
+                                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Beneficios (coma separados)</label>
                                 <input name="features" defaultValue={(p.features ?? []).join(', ')} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                               </div>
                               <div>
