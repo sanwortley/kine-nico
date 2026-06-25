@@ -30,11 +30,7 @@ export default async function EvaluacionesPage() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        {/* Form */}
-        <section>
-          <h2 className="text-base font-bold text-slate-700 mb-4">Nueva evaluación</h2>
-          <DinamoForm clients={clients} saveAction={saveDinamometria} />
-        </section>
+        <DinamoForm clients={clients} saveAction={saveDinamometria} />
 
         <DinamoHistorial rows={rows.map((r: any) => ({ ...r, fecha: r.fecha.toISOString() }))} />
       </div>
