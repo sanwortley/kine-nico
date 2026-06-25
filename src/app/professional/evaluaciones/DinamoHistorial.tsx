@@ -192,13 +192,70 @@ function RowCard({ r }: { r: Row }) {
 }
 
 export default function DinamoHistorial({ rows }: { rows: Row[] }) {
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
   if (rows.length === 0) return null;
+
+  const filtered = rows.filter(r => {
+    const matchName = !search || r.client.name.toLowerCase().includes(search.toLowerCase());
+    const d = r.fecha.slice(0, 10);
+    const matchFrom = !fromDate || d >= fromDate;
+    const matchTo = !toDate || d <= toDate;
+    return matchName && matchFrom && matchTo;
+  });
+
   return (
     <section>
-      <h2 className="text-base font-bold text-slate-700 mb-4">Historial reciente</h2>
-      <div className="space-y-2">
-        {rows.map(r => <RowCard key={r.id} r={{ ...r, fecha: r.fecha.toString() }} />)}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h2 className="text-base font-bold text-slate-700">Historial reciente</h2>
+        <span className="text-xs text-slate-400">{filtered.length} / {rows.length}</span>
       </div>
+
+      {/* Filtros */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 mb-4 flex flex-wrap gap-2">
+        <div className="flex-1 min-w-[160px]">
+          <input
+            type="text"
+            placeholder="Buscar paciente..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full h-8 px-3 rounded-lg border border-slate-200 text-sm text-slate-700 placeholder-slate-300 focus:outline-none focus:border-primary"
+          />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={fromDate}
+            onChange={e => setFromDate(e.target.value)}
+            className="h-8 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 focus:outline-none focus:border-primary"
+          />
+          <span className="text-slate-300 text-xs">—</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={e => setToDate(e.target.value)}
+            className="h-8 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 focus:outline-none focus:border-primary"
+          />
+          {(search || fromDate || toDate) && (
+            <button
+              onClick={() => { setSearch(''); setFromDate(''); setToDate(''); }}
+              className="h-8 px-2 rounded-lg text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6">Sin resultados para ese filtro</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(r => <RowCard key={r.id} r={{ ...r, fecha: r.fecha.toString() }} />)}
+        </div>
+      )}
     </section>
   );
 }
