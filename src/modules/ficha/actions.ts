@@ -92,7 +92,11 @@ export async function getLastDinamometria(clientId: string) {
 export async function getClients() {
   try {
     const clients = await prisma.user.findMany({
-      where: { role: 'CLIENT', status: 'ACTIVE' },
+      where: {
+        role: 'CLIENT',
+        status: 'ACTIVE',
+        subscriptions: { some: { estado: 'ACTIVE' } },
+      },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
