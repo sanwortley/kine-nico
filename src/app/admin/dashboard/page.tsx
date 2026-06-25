@@ -109,14 +109,12 @@ export default async function AdminDashboard({
 
   async function toggleService(formData: FormData) {
     'use server';
-    const id     = formData.get('id') as string;
-    const active = formData.get('active') === 'true';
-    const res = await toggleServiceActive(id, active);
-    if (res.success) {
-      redirect('/admin/dashboard?tab=servicios&successMsg=Estado del servicio cambiado.');
-    } else {
-      redirect('/admin/dashboard?tab=servicios&errorMsg=Error.');
-    }
+    const id = formData.get('id') as string;
+    // 'current' is the state shown in UI; we want to flip it
+    const current = formData.get('current') === 'true';
+    await toggleServiceActive(id, current);
+    revalidatePath('/admin/dashboard');
+    redirect('/admin/dashboard?tab=servicios');
   }
 
   async function addProfessional(formData: FormData) {
@@ -260,6 +258,7 @@ export default async function AdminDashboard({
     const id = formData.get('id') as string;
     const activo = formData.get('activo') === 'true';
     await togglePlanActive(id, activo);
+    revalidatePath('/admin/dashboard');
     redirect('/admin/dashboard?tab=planes');
   }
 
@@ -692,7 +691,7 @@ export default async function AdminDashboard({
                           <div className="flex items-center gap-1 shrink-0">
                             <form action={toggleService}>
                               <input type="hidden" name="id" value={s.id} />
-                              <input type="hidden" name="active" value={s.active ? 'false' : 'true'} />
+                              <input type="hidden" name="current" value={String(s.active)} />
                               <button type="submit" title={s.active ? 'Desactivar' : 'Activar'}
                                 className={`p-2 rounded-lg transition-colors cursor-pointer ${s.active ? 'text-green-500 hover:bg-red-50 hover:text-red-500' : 'text-slate-400 hover:bg-green-50 hover:text-green-600'}`}>
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
