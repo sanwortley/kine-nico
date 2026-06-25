@@ -44,6 +44,7 @@ model User {
   // FASE 2
   subscriptions    Subscription[]
   dinamometrias    Dinamometria[] @relation("ClienteDinamo")
+  fichas           FichaEvaluacion[] @relation("ClienteFicha")
 
   @@index([email])
   @@index([status])
@@ -150,6 +151,43 @@ model Subscription {
   gatewaySubId   String?
 
   @@index([userId])
+}
+
+model FichaEvaluacion {
+  id          String   @id @default(uuid())
+  fecha       DateTime @default(now())
+  clientId    String
+  client      User     @relation("ClienteFicha", fields: [clientId], references: [id])
+
+  // Datos básicos (guardados individualmente para poder filtrar/resumir)
+  peso        Float?
+  altura      Float?   // en cm
+  sexo        String?
+  grasaEst    Float?
+  deporte     String?
+  catPeso     String?
+
+  // Bloques complejos en JSON
+  historia         Json?  // {anosEntrenando, lesionesPasadas, lesionesActivas, limitaciones, medicacion, cirugias, deportePrevio, frecuencia, ultimaCompetencia, objetivo}
+  romTests         Json?  // Array de {prueba, der, izq, total, obs}
+  fuerzaTests      Json?  // Array de {ejercicio, peso, reps}
+  capacidadTests   Json?  // {cmj, sj, sprint30, plancha, vo2max, km1, abalakov, dj30, rsiMod, saltoHoriz, cmjUni, djUni, multisaltos, singleHop, tripleHop, crossHop, sideHop, timedHop}
+  dinamoExt        Json?  // Dinamometría extendida: más músculos que el módulo básico
+
+  // Observaciones
+  fortalezas        String?
+  debilidades       String?
+  prioridades       String?
+  restricciones     String?
+  objetivos12sem    String?
+  fechaReevaluacion DateTime?
+  notas             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([fecha])
 }
 
 model Dinamometria {
