@@ -86,7 +86,33 @@ export async function POST(req: NextRequest) {
       const paymentId = String(payload.resource).split('/').pop();
       if (paymentId) await handlePayment(paymentId);
     } catch (err) {
-      console.error('[MP Webhook] Error processing IPN:', err);
+      console.error('[MP Webhook] Error processing IPN payment:', err);
+    }
+  }
+
+  // merchant_order: MP lo manda cuando se completa la orden de compra
+  if (payload.topic === 'merchant_order' && payload.resource) {
+    try {
+      const mpAccessToken = process.env.MP_ACCESS_TOKEN;
+      if (mpAccessToken) {
+        const orderId = String(payload.resource).split('/').pop();
+        const orderRes = await fetch(`https://api.mercadopago.com/merchant_orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${mpAccessToken}` },
+        });
+        if (orderRes.ok) {
+          const order = await orderRes.json();
+          if (order.order_status === 'paid') {
+            for (const p of order.payments ?? []) {
+              if (p.status === 'approved') {
+                await handlePayment(String(p.id));
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[MP Webhook] Error processing merchant_order:', err);
     }
   }
 
