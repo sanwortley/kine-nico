@@ -43,6 +43,7 @@ model User {
   
   // FASE 2
   subscriptions    Subscription[]
+  dinamometrias    Dinamometria[] @relation("ClienteDinamo")
 
   @@index([email])
   @@index([status])
@@ -146,7 +147,58 @@ model Subscription {
   fechaInicio    DateTime  @default(now())
   fechaFin       DateTime?
   paymentGateway String    @default("MERCADOPAGO")
-  gatewaySubId   String?   // ID de suscripción en la pasarela
+  gatewaySubId   String?
 
   @@index([userId])
+}
+
+model Dinamometria {
+  id              String    @id @default(uuid())
+  fecha           DateTime  @default(now())
+  notas           String?
+
+  // Paciente
+  clientId        String
+  client          User      @relation("ClienteDinamo", fields: [clientId], references: [id])
+
+  // Datos corporales
+  peso            Float?    // kg
+  altura          Float?    // m
+
+  // Cuádriceps (N)
+  cuadDer         Float?
+  cuadIzq         Float?
+
+  // Isquiotibiales (N)
+  isquioDer       Float?
+  isquioIzq       Float?
+
+  // Abductores (N)
+  abdDer          Float?
+  abdIzq          Float?
+
+  // Adductores (N)
+  addDer          Float?
+  addIzq          Float?
+
+  // Eversores de tobillo (N)
+  eversorDer      Float?
+  eversorIzq      Float?
+
+  // ROM Cadera flexión (cm)
+  romCaderaDer    Float?
+  romCaderaIzq    Float?
+
+  // ROM Tobillo (cm)
+  romTobilloDer   Float?
+  romTobilloIzq   Float?
+
+  // Velocidad squat 40kg (m/s)
+  velocidadSquat  Float?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([fecha])
 }

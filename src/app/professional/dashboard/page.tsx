@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { logoutUser } from '@/modules/auth/actions';
 import ProfCalendar from './ProfCalendar';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,6 +96,19 @@ export default async function ProfessionalDashboard() {
           <StatCard label="Reservados hoy" value={pendingToday} color="blue" />
           <StatCard label="Disponibles hoy" value={availableToday} color="green" />
           <StatCard label="Total reservados" value={totalReserved} color="accent" />
+        </div>
+
+        {/* Accesos rápidos */}
+        <div className="flex gap-3 flex-wrap">
+          <Link
+            href="/professional/evaluaciones"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:border-primary hover:text-primary transition-all shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Dinamometría
+          </Link>
         </div>
 
         {/* Professional info */}
