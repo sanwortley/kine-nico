@@ -8,7 +8,7 @@ import { getServices, createService, toggleServiceActive, deleteService } from '
 import { getProfessionals, createProfessional, toggleProfessionalActive, deleteProfessional } from '@/modules/professionals/actions';
 import { getTurnos, createTurnoAvailability, cancelTurno, completeTurno, deleteTurno } from '@/modules/turnos/actions';
 import { getAdminSubscriptions, adminAssignPlan, adminAdjustCredits, adminConfirmPayment } from '@/modules/billing/actions';
-import { getPlans } from '@/modules/plans/actions';
+import { getPlans, createPlan, updatePlan, togglePlanActive, deletePlan } from '@/modules/plans/actions';
 import AdminMobileMenu from '@/app/components/AdminMobileMenu';
 import AddAvailabilityForm from './AddAvailabilityForm';
 import DeleteButton from '@/app/components/DeleteButton';
@@ -231,6 +231,37 @@ export default async function AdminDashboard({
     }
   }
 
+  // ── Server actions — Planes ──────────────────────────────────────────────────
+
+  async function createPlanAction(formData: FormData) {
+    'use server';
+    const res = await createPlan(formData);
+    if (res.success) redirect('/admin/dashboard?tab=planes&successMsg=Plan creado con éxito.');
+    else redirect(`/admin/dashboard?tab=planes&errorMsg=${encodeURIComponent(res.error || 'Error.')}`);
+  }
+
+  async function updatePlanAction(formData: FormData) {
+    'use server';
+    const res = await updatePlan(formData);
+    if (res.success) redirect('/admin/dashboard?tab=planes&successMsg=Plan actualizado.');
+    else redirect(`/admin/dashboard?tab=planes&errorMsg=${encodeURIComponent(res.error || 'Error.')}`);
+  }
+
+  async function togglePlanActiveAction(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    const activo = formData.get('activo') === 'true';
+    await togglePlanActive(id, activo);
+    redirect('/admin/dashboard?tab=planes');
+  }
+
+  async function deletePlanAction(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    await deletePlan(id);
+    redirect('/admin/dashboard?tab=planes&successMsg=Plan eliminado.');
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -328,7 +359,7 @@ export default async function AdminDashboard({
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="hidden md:flex border-b border-slate-100 bg-slate-50/50">
-            {['usuarios', 'servicios', 'profesionales', 'turnos', 'configuracion'].map((tab) => (
+            {['usuarios', 'servicios', 'planes', 'profesionales', 'turnos', 'configuracion'].map((tab) => (
               <Link
                 key={tab}
                 href={`/admin/dashboard?tab=${tab}`}
@@ -775,6 +806,147 @@ export default async function AdminDashboard({
             )}
 
             {/* TAB: CONFIGURACION */}
+            {/* ── TAB: PLANES ─────────────────────────────────────────────── */}
+            {activeTab === 'planes' && (
+              <div className="space-y-6">
+                {/* Crear plan */}
+                <div>
+                  <h3 className="font-title text-md text-primary font-bold mb-4">Nuevo plan</h3>
+                  <form action={createPlanAction} className="bg-slate-50 rounded-2xl border border-slate-100 p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nombre</label>
+                        <input name="nombre" required placeholder="Plan Mensual" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Precio $</label>
+                          <input name="price" type="number" min="0" step="100" required placeholder="50000" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Sesiones</label>
+                          <input name="limiteTurnos" type="number" min="1" defaultValue="4" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Descripción</label>
+                      <input name="descripcion" placeholder="Descripción breve del plan" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Beneficios (separados por coma)</label>
+                        <input name="features" placeholder="Evaluación inicial, Seguimiento semanal" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Período</label>
+                        <select name="interval" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                          <option value="month">Mensual</option>
+                          <option value="week">Semanal</option>
+                          <option value="year">Anual</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button type="submit" className="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow hover:bg-secondary transition-all cursor-pointer">
+                      Crear plan
+                    </button>
+                  </form>
+                </div>
+
+                {/* Lista de planes */}
+                <div>
+                  <h3 className="font-title text-md text-primary font-bold mb-4">Planes existentes ({plans.length})</h3>
+                  {plans.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-8">No hay planes creados todavía.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {(plans as any[]).map((p: any) => (
+                        <div key={p.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+                          {/* Vista compacta */}
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-800">{p.nombre}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.activo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {p.activo ? 'Activo' : 'Inactivo'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">{p.descripcion}</p>
+                              <div className="flex gap-3 mt-1 text-xs text-slate-600">
+                                <span className="font-bold text-primary">${(p.price ?? 0).toLocaleString('es-AR')}</span>
+                                <span>· {p.limiteTurnos} sesiones</span>
+                                <span>· {p.interval === 'month' ? 'Mensual' : p.interval === 'week' ? 'Semanal' : 'Anual'}</span>
+                              </div>
+                              {p.features?.length > 0 && (
+                                <p className="text-[10px] text-slate-400 mt-1">{p.features.join(' · ')}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <form action={togglePlanActiveAction}>
+                                <input type="hidden" name="id" value={p.id} />
+                                <input type="hidden" name="activo" value={String(p.activo)} />
+                                <button type="submit" className={`text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer border ${p.activo ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'}`}>
+                                  {p.activo ? 'Desactivar' : 'Activar'}
+                                </button>
+                              </form>
+                              <form action={deletePlanAction} onSubmit={(e) => { if (!confirm('¿Eliminar este plan?')) e.preventDefault(); }}>
+                                <input type="hidden" name="id" value={p.id} />
+                                <button type="submit" className="text-xs px-2.5 py-1.5 rounded-lg font-bold cursor-pointer bg-slate-50 text-slate-500 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100">
+                                  Eliminar
+                                </button>
+                              </form>
+                            </div>
+                          </div>
+                          {/* Formulario de edición */}
+                          <details className="mt-2">
+                            <summary className="text-xs text-slate-400 cursor-pointer hover:text-primary font-medium select-none">✏ Editar datos</summary>
+                            <form action={updatePlanAction} className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <input type="hidden" name="id" value={p.id} />
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Nombre</label>
+                                <input name="nombre" defaultValue={p.nombre} required className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Precio $</label>
+                                  <input name="price" type="number" min="0" step="100" defaultValue={p.price} required className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Sesiones</label>
+                                  <input name="limiteTurnos" type="number" min="1" defaultValue={p.limiteTurnos} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                                </div>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Descripción</label>
+                                <input name="descripcion" defaultValue={p.descripcion} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Beneficios (separados por coma)</label>
+                                <input name="features" defaultValue={(p.features ?? []).join(', ')} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Período</label>
+                                <select name="interval" defaultValue={p.interval} className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                                  <option value="month">Mensual</option>
+                                  <option value="week">Semanal</option>
+                                  <option value="year">Anual</option>
+                                </select>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <button type="submit" className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold shadow hover:bg-secondary transition-all cursor-pointer">
+                                  Guardar cambios
+                                </button>
+                              </div>
+                            </form>
+                          </details>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'configuracion' && (
               <div className="max-w-md mx-auto bg-slate-50 p-6 rounded-2xl border border-slate-100">
                 <h3 className="font-title text-md text-primary font-bold mb-4 font-sans">Cambiar Contraseña</h3>
