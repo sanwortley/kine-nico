@@ -214,66 +214,96 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
     <div className="bg-slate-50 h-screen flex flex-col overflow-hidden font-sans">
 
       {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 h-14 flex items-center gap-3 px-4 shrink-0 shadow-sm">
-        {/* Logo */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Image src="/logo.png" alt="Logo" width={36} height={36} className="object-contain" unoptimized />
-          <div className="hidden sm:flex flex-col leading-none">
-            <span className="font-title font-bold text-primary text-sm">Nicolas Jaled Kine</span>
-            <span className="text-[10px] text-slate-400 font-subtitle">Programas de entrenamiento</span>
+      <header className="bg-white border-b border-slate-200 shrink-0 shadow-sm">
+        {/* Fila 1 móvil: ← nombre/bloque [spacer] cerrar guardar */}
+        <div className="flex items-center gap-2 px-3 h-11 sm:hidden">
+          <a href="/professional/programas" title="Volver"
+            className="h-8 w-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </a>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-slate-800 truncate">{clientName}</p>
+            <p className="text-[10px] text-primary font-semibold truncate">{bloqueActual}</p>
+          </div>
+          <button onClick={() => setCerrarModal(true)}
+            className="h-8 w-8 rounded-lg border border-amber-200 bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="h-8 px-3 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 shrink-0">
+            {saving ? '…' : savedMsg ? '✓' : 'Guardar'}
+          </button>
+        </div>
+
+        {/* Fila 2 móvil: semana + día */}
+        <div className="flex items-center gap-2 px-3 h-10 border-t border-slate-100 sm:hidden">
+          <select value={semana} onChange={e => { setSemana(+e.target.value); setSelIdx(0); }}
+            className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary flex-1">
+            {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
+          </select>
+          <div className="flex items-center gap-1">
+            <button onClick={() => { setDia(d => Math.max(1, d - 1)); setSelIdx(0); }}
+              className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-bold cursor-pointer">‹</button>
+            <span className="bg-primary text-white font-bold text-sm px-3 h-8 rounded-lg flex items-center whitespace-nowrap">
+              Día {dia}
+            </span>
+            <button onClick={() => { setDia(d => Math.min(7, d + 1)); setSelIdx(0); }}
+              className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-bold cursor-pointer">›</button>
           </div>
         </div>
 
-        <div className="w-px h-8 bg-slate-200 shrink-0" />
-
-        {/* Semana */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:block">Semana</span>
-          <select value={semana} onChange={e => { setSemana(+e.target.value); setSelIdx(0); }}
-            className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary">
-            {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
-          </select>
+        {/* Desktop: fila única original */}
+        <div className="hidden sm:flex items-center gap-3 px-4 h-14">
+          <div className="flex items-center gap-2 shrink-0">
+            <Image src="/logo.png" alt="Logo" width={36} height={36} className="object-contain" unoptimized />
+            <div className="flex flex-col leading-none">
+              <span className="font-title font-bold text-primary text-sm">Nicolas Jaled Kine</span>
+              <span className="text-[10px] text-slate-400 font-subtitle">Programas de entrenamiento</span>
+            </div>
+          </div>
+          <div className="w-px h-8 bg-slate-200 shrink-0" />
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Semana</span>
+            <select value={semana} onChange={e => { setSemana(+e.target.value); setSelIdx(0); }}
+              className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary">
+              {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Día</span>
+            <button onClick={() => { setDia(d => Math.max(1, d - 1)); setSelIdx(0); }}
+              className="w-7 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold cursor-pointer">‹</button>
+            <span className="bg-primary text-white font-bold text-sm px-3 h-8 rounded-lg flex items-center whitespace-nowrap">Día {dia}</span>
+            <button onClick={() => { setDia(d => Math.min(7, d + 1)); setSelIdx(0); }}
+              className="w-7 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold cursor-pointer">›</button>
+          </div>
+          <div className="flex-1" />
+          <span className="text-sm font-semibold text-slate-600 truncate max-w-[140px]">{clientName}</span>
+          <span className="text-xs text-slate-400">·</span>
+          <span className="text-xs font-bold text-primary">{bloqueActual}</span>
+          <button onClick={() => setCerrarModal(true)}
+            className="h-8 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Cerrar bloque
+          </button>
+          <a href="/professional/programas"
+            className="h-8 px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Pacientes
+          </a>
+          <button onClick={handleSave} disabled={saving}
+            className="h-8 px-4 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap">
+            {saving ? 'Guardando…' : savedMsg || 'Guardar'}
+          </button>
         </div>
-
-        {/* Día */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:block">Día</span>
-          <button onClick={() => { setDia(d => Math.max(1, d - 1)); setSelIdx(0); }}
-            className="w-7 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold cursor-pointer">‹</button>
-          <span className="bg-primary text-white font-bold text-sm px-3 h-8 rounded-lg flex items-center whitespace-nowrap">
-            Día {dia}
-          </span>
-          <button onClick={() => { setDia(d => Math.min(7, d + 1)); setSelIdx(0); }}
-            className="w-7 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold cursor-pointer">›</button>
-        </div>
-
-        <div className="flex-1" />
-
-        <span className="text-sm font-semibold text-slate-600 hidden sm:block truncate max-w-[140px]">{clientName}</span>
-        <span className="text-xs text-slate-400 hidden sm:block">·</span>
-        <span className="text-xs font-bold text-primary hidden sm:block">{bloqueActual}</span>
-
-        <button onClick={() => setCerrarModal(true)}
-          className="h-8 px-2 sm:px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="hidden sm:inline">Cerrar bloque</span>
-        </button>
-
-        <a href="/professional/programas"
-          title="Volver a pacientes"
-          className="h-8 w-8 sm:w-auto sm:px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 shrink-0">
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span className="hidden sm:inline">Pacientes</span>
-        </a>
-
-        <button onClick={handleSave} disabled={saving}
-          className="h-8 px-3 sm:px-4 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0">
-          {saving ? '…' : savedMsg ? '✓' : <span>Guardar<span className="hidden sm:inline"></span></span>}
-        </button>
       </header>
 
       {/* ── 3 COLUMNS ────────────────────────────────────────────────────── */}
