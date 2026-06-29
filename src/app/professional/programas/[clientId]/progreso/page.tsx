@@ -89,6 +89,16 @@ export default async function ProgresoPage({ params }: { params: Promise<{ clien
 
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '20px 24px' }}>
 
+        {/* Back button — screen only */}
+        <a href={`/professional/programas/${clientId}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16, fontSize: 12, fontWeight: 600, color: '#475569', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px' }}
+          className="print:hidden">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Volver al programa
+        </a>
+
         {/* HEADER */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, borderBottom: '2px solid #1e3a5f', paddingBottom: 16 }}>
           <div>
