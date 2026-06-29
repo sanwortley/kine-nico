@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useState, useCallback } from 'react';
 import type { EjercicioPayload } from '@/modules/programas/actions';
+import { cerrarYNuevoBloque } from '@/modules/programas/actions';
 
 // ── types ────────────────────────────────────────────────────────────────────
 type Serie    = { reps: string; pctRM: string; kg: string };
@@ -12,11 +13,12 @@ type DayMap   = Record<string, EjSesion[]>;
 interface Ejercicio { id: string; nombre: string; patron: string }
 
 interface Props {
-  clientId:    string;
-  clientName:  string;
-  ejercicios:  Ejercicio[];
-  initialData: Record<string, Omit<EjercicioPayload, never>[]>;
-  saveAction:  (clientId: string, semana: number, dia: number, ejs: EjercicioPayload[]) => Promise<{ success: boolean }>;
+  clientId:       string;
+  clientName:     string;
+  bloqueActual:   string;
+  ejercicios:     Ejercicio[];
+  initialData:    Record<string, Omit<EjercicioPayload, never>[]>;
+  saveAction:     (clientId: string, semana: number, dia: number, ejs: EjercicioPayload[]) => Promise<{ success: boolean }>;
 }
 
 // ── constants ────────────────────────────────────────────────────────────────
@@ -57,7 +59,7 @@ function ParamField({ label, value, onChange, placeholder }: { label: string; va
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
-export default function ProgramaBuilder({ clientId, clientName, ejercicios, initialData, saveAction }: Props) {
+export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ejercicios, initialData, saveAction }: Props) {
   const normalise = (): DayMap => {
     const m: DayMap = {};
     for (const [k, list] of Object.entries(initialData)) {
@@ -75,6 +77,9 @@ export default function ProgramaBuilder({ clientId, clientName, ejercicios, init
   const [saving,       setSaving]       = useState(false);
   const [savedMsg,     setSavedMsg]     = useState('');
   const [mobilePanel,  setMobilePanel]  = useState<'biblioteca' | 'sesion' | 'detalle'>('sesion');
+  const [cerrarModal,  setCerrarModal]  = useState(false);
+  const [nombreNuevo,  setNombreNuevo]  = useState('');
+  const [cerrando,     setCerrando]     = useState(false);
 
   const key      = dayKey(semana, dia);
   const session: EjSesion[] = data[key] ?? [];
@@ -177,6 +182,12 @@ export default function ProgramaBuilder({ clientId, clientName, ejercicios, init
     }));
   }
 
+  async function handleCerrar() {
+    setCerrando(true);
+    await cerrarYNuevoBloque(clientId, nombreNuevo);
+    window.location.reload();
+  }
+
   async function handleSave() {
     setSaving(true);
     const payload: EjercicioPayload[] = session.map(e => ({
@@ -239,6 +250,16 @@ export default function ProgramaBuilder({ clientId, clientName, ejercicios, init
         <div className="flex-1" />
 
         <span className="text-sm font-semibold text-slate-600 hidden sm:block truncate max-w-[140px]">{clientName}</span>
+        <span className="text-xs text-slate-400 hidden sm:block">·</span>
+        <span className="text-xs font-bold text-primary hidden sm:block">{bloqueActual}</span>
+
+        <button onClick={() => setCerrarModal(true)}
+          className="h-8 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors hidden sm:flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Cerrar bloque
+        </button>
 
         <a href="/professional/programas"
           className="h-8 px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5">
@@ -462,6 +483,39 @@ export default function ProgramaBuilder({ clientId, clientName, ejercicios, init
           )}
         </div>
       </div>
+
+      {/* ── MODAL CERRAR BLOQUE ──────────────────────────────────────────── */}
+      {cerrarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
+            <div>
+              <h3 className="font-title text-lg font-bold text-slate-800">Cerrar bloque</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                El bloque actual <strong>"{bloqueActual}"</strong> quedará guardado en el historial. Se creará uno nuevo en blanco.
+              </p>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre del nuevo bloque</label>
+              <input
+                value={nombreNuevo}
+                onChange={e => setNombreNuevo(e.target.value)}
+                placeholder="Ej: Bloque 2 - Carga"
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setCerrarModal(false)} disabled={cerrando}
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleCerrar} disabled={cerrando}
+                className="flex-1 h-10 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {cerrando ? 'Cerrando…' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MOBILE PANEL TABS ────────────────────────────────────────────── */}
       <div className="md:hidden bg-white border-t border-slate-200 flex shrink-0 h-12">

@@ -143,18 +143,29 @@ function KpiCard({ label, big, small, color }: { label: string; big: string; sma
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default async function PrintProgramaPage({ params }: { params: Promise<{ clientId: string }> }) {
+export default async function PrintProgramaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ clientId: string }>;
+  searchParams: Promise<{ programaId?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect('/auth/login');
   const { clientId } = await params;
+  const { programaId } = await searchParams;
 
   // Clients can only view their own program
   if (session.role === 'CLIENT' && session.id !== clientId) redirect('/client/dashboard?tab=misplanes');
 
+  const programaWhere = programaId
+    ? { id: programaId, clientId }
+    : { clientId, cerradoAt: null as null };
+
   const [client, programa, dinamometrias, planilla] = await Promise.all([
     prisma.user.findUnique({ where: { id: clientId }, select: { name: true } }),
     prisma.programa.findFirst({
-      where: { clientId },
+      where: programaWhere,
       include: {
         dias: {
           include: {

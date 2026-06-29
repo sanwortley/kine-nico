@@ -275,15 +275,17 @@ model PlanillaAtleta {
 }
 
 model Programa {
-  id        String      @id @default(uuid())
-  clientId  String
-  client    User        @relation("ClientePrograma", fields: [clientId], references: [id], onDelete: Cascade)
-  nombre    String      @default("Programa")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  dias      ProgramaDia[]
+  id          String      @id @default(uuid())
+  clientId    String
+  client      User        @relation("ClientePrograma", fields: [clientId], references: [id], onDelete: Cascade)
+  nombre      String      @default("Bloque 1")
+  cerradoAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  dias        ProgramaDia[]
 
   @@index([clientId])
+  @@index([clientId, cerradoAt])
 }
 
 model ProgramaDia {

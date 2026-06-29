@@ -120,3 +120,119 @@ Las notas deben ser clínicas, concretas y accionables (qué hacer, no hacer, mo
     return buildFallback(input);
   }
 }
+
+// ── Informe de progreso ────────────────────────────────────────────────────────
+
+export interface DinamoSnapshot {
+  fecha: string;
+  cuadDer?: number | null; cuadIzq?: number | null;
+  isquioDer?: number | null; isquioIzq?: number | null;
+  abdDer?: number | null; abdIzq?: number | null;
+  romTobilloDer?: number | null; romTobilloIzq?: number | null;
+  velocidadSquat?: number | null;
+}
+
+export interface BloqueResumen {
+  nombre: string;
+  fechaInicio: string;
+  fechaCierre: string;
+  diasPorSemana: number;
+  ejerciciosDestacados: string[];
+  kgMaximo?: number | null;
+}
+
+export interface ProgresoAIInput {
+  clientName: string;
+  evolucionMeses?: number | null;
+  dinamometrias: DinamoSnapshot[];   // ordenadas de más vieja a más nueva
+  bloques: BloqueResumen[];          // bloques cerrados + bloque activo al final
+}
+
+export interface ProgresoAIOutput {
+  resumen: string;
+  logros: string[];
+  alertas: string[];
+  recomendaciones: string[];
+}
+
+function buildProgresoFallback(input: ProgresoAIInput): ProgresoAIOutput {
+  const ultimo = input.dinamometrias.at(-1);
+  const primero = input.dinamometrias[0];
+  const lsiActual = lsi(ultimo?.isquioDer, ultimo?.isquioIzq);
+  const lsiInicial = lsi(primero?.isquioDer, primero?.isquioIzq);
+  const logros: string[] = [];
+  const alertas: string[] = [];
+
+  if (lsiActual !== null && lsiInicial !== null && lsiActual > lsiInicial) {
+    logros.push(`LSI isquiotibiales mejoró de ${lsiInicial}% a ${lsiActual}% a lo largo de ${input.bloques.length} bloques.`);
+  }
+  if (lsiActual !== null && lsiActual >= 90) {
+    logros.push(`Criterio de retorno deportivo LSI ≥90% alcanzado en isquiotibiales.`);
+  } else if (lsiActual !== null) {
+    alertas.push(`LSI isquiotibiales actual ${lsiActual}% — todavía por debajo del criterio de retorno (≥90%).`);
+  }
+  if (input.bloques.length > 1) {
+    logros.push(`${input.bloques.length} bloques de entrenamiento completados.`);
+  }
+
+  const resumen = `Paciente con ${input.evolucionMeses ?? '—'} meses de evolución post-quirúrgica. Completó ${input.bloques.length} bloque${input.bloques.length !== 1 ? 's' : ''} de entrenamiento supervisado.${lsiActual ? ` LSI isquiotibiales actual: ${lsiActual}%.` : ''}`;
+
+  return {
+    resumen,
+    logros,
+    alertas,
+    recomendaciones: [
+      'Continuar con reevaluaciones de dinamometría al cierre de cada bloque.',
+      'Progresar cargas de manera lineal manteniendo técnica de ejecución.',
+    ],
+  };
+}
+
+export async function generarInformeProgreso(input: ProgresoAIInput): Promise<ProgresoAIOutput> {
+  const client = getClient();
+  if (!client) return buildProgresoFallback(input);
+
+  const dinoRows = input.dinamometrias.map(d => {
+    const li = lsi(d.isquioDer, d.isquioIzq);
+    const lc = lsi(d.cuadDer, d.cuadIzq);
+    return `  • ${d.fecha}: LSI Isquio ${li ?? '—'}% | LSI Cuád ${lc ?? '—'}% | Vel.Squat ${d.velocidadSquat ?? '—'} m/s | ROM Tobillo D${d.romTobilloDer ?? '—'}/I${d.romTobilloIzq ?? '—'} cm`;
+  }).join('\n');
+
+  const bloqueRows = input.bloques.map((b, i) =>
+    `  Bloque ${i + 1} — "${b.nombre}" (${b.fechaInicio} → ${b.fechaCierre}): ${b.diasPorSemana}d/sem | ${b.ejerciciosDestacados.slice(0, 4).join(', ')}${b.kgMaximo ? ` | Kg máx: ${b.kgMaximo}` : ''}`
+  ).join('\n');
+
+  const prompt = `Sos kinesiólogo deportivo argentino especializado en rehabilitación post-LCA. Redactá un informe de progreso clínico en español rioplatense, tono profesional, basado en datos reales.
+
+PACIENTE: ${input.clientName}
+EVOLUCIÓN: ${input.evolucionMeses ?? '—'} meses post-Cx
+BLOQUES COMPLETADOS: ${input.bloques.length}
+
+EVOLUCIÓN DINAMOMETRÍA (cronológico):
+${dinoRows || '  Sin datos de dinamometría'}
+
+BLOQUES DE ENTRENAMIENTO:
+${bloqueRows || '  Sin bloques registrados'}
+
+Respondé ÚNICAMENTE con JSON válido sin markdown:
+{
+  "resumen": "2-3 oraciones de síntesis clínica del progreso global del paciente",
+  "logros": ["logro clínico concreto 1", "logro 2", "logro 3"],
+  "alertas": ["alerta o déficit pendiente 1", "alerta 2"],
+  "recomendaciones": ["recomendación para el próximo bloque 1", "recomendación 2", "recomendación 3"]
+}
+
+Máximo 4 logros, 3 alertas, 4 recomendaciones. Mencioná métricas específicas (LSI %, N, kg) cuando existan.`;
+
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 900,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = msg.content[0].type === 'text' ? msg.content[0].text : '';
+    return JSON.parse(text) as ProgresoAIOutput;
+  } catch {
+    return buildProgresoFallback(input);
+  }
+}
