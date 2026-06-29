@@ -114,7 +114,8 @@ Las notas deben ser clínicas, concretas y accionables (qué hacer, no hacer, mo
     });
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : '';
-    const parsed = JSON.parse(text) as ProgramaAIOutput;
+    const clean = text.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '').trim();
+    const parsed = JSON.parse(clean) as ProgramaAIOutput;
     return parsed;
   } catch {
     return buildFallback(input);
@@ -231,7 +232,8 @@ Máximo 4 logros, 3 alertas, 4 recomendaciones. Mencioná métricas específicas
       messages: [{ role: 'user', content: prompt }],
     });
     const text = msg.content[0].type === 'text' ? msg.content[0].text : '';
-    return JSON.parse(text) as ProgresoAIOutput;
+    const clean = text.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '').trim();
+    return JSON.parse(clean) as ProgresoAIOutput;
   } catch {
     return buildProgresoFallback(input);
   }
