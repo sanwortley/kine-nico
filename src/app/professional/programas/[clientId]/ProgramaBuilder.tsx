@@ -262,16 +262,17 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
         </button>
 
         <a href="/professional/programas"
-          className="h-8 px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          title="Volver a pacientes"
+          className="h-8 w-8 sm:w-auto sm:px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 shrink-0">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Pacientes
+          <span className="hidden sm:inline">Pacientes</span>
         </a>
 
         <button onClick={handleSave} disabled={saving}
-          className="h-8 px-4 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap">
-          {saving ? 'Guardando…' : savedMsg || 'Guardar'}
+          className="h-8 px-3 sm:px-4 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0">
+          {saving ? '…' : savedMsg ? '✓' : <span>Guardar<span className="hidden sm:inline"></span></span>}
         </button>
       </header>
 
