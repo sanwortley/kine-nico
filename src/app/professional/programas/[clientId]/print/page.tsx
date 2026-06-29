@@ -251,6 +251,9 @@ export default async function PrintProgramaPage({
   const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const modalidad = dias.length >= 3 ? 'Full body / MMII' : 'MMII exclusivo';
 
+  const bloqueNum = programa.nombre.match(/\d+/)?.[0] ?? '1';
+  const docTitle = `NJK ${client.name} Plan B${bloqueNum}`;
+
   // Isquio goal calc
   const isqMayor  = latest?.isquioDer && latest?.isquioIzq ? Math.max(latest.isquioDer, latest.isquioIzq) : null;
   const isqMenor  = latest?.isquioDer && latest?.isquioIzq ? Math.min(latest.isquioDer, latest.isquioIzq) : null;
@@ -261,6 +264,7 @@ export default async function PrintProgramaPage({
 
   return (
     <>
+      <title>{docTitle}</title>
       <PrintTrigger />
       <style>{`
         @media print {
