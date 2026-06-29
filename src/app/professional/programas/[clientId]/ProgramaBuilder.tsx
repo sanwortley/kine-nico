@@ -111,7 +111,6 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
       };
       setSession(prev => [...prev, nuevo]);
       setSelIdx(session.length);
-      setMobilePanel('sesion');
     }
   }
 
