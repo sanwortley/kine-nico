@@ -227,11 +227,12 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             <p className="text-xs font-bold text-slate-800 truncate">{clientName}</p>
             <p className="text-[10px] text-primary font-semibold truncate">{bloqueActual}</p>
           </div>
-          <button onClick={() => setCerrarModal(true)}
-            className="h-8 w-8 rounded-lg border border-amber-200 bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <button onClick={() => setCerrarModal(true)} title="Cerrar bloque"
+            className="h-8 px-2 rounded-lg border border-amber-200 bg-amber-50 flex items-center gap-1 text-amber-700 text-[10px] font-bold shrink-0">
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
+            Cerrar
           </button>
           <button onClick={handleSave} disabled={saving}
             className="h-8 px-3 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 shrink-0">
@@ -288,7 +289,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
           <button onClick={() => setCerrarModal(true)}
             className="h-8 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             Cerrar bloque
           </button>
