@@ -254,11 +254,11 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
         <span className="text-xs font-bold text-primary hidden sm:block">{bloqueActual}</span>
 
         <button onClick={() => setCerrarModal(true)}
-          className="h-8 px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors hidden sm:flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          className="h-8 px-2 sm:px-3 rounded-lg border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          Cerrar bloque
+          <span className="hidden sm:inline">Cerrar bloque</span>
         </button>
 
         <a href="/professional/programas"
