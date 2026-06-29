@@ -7,6 +7,8 @@ import { getServices } from '@/modules/services-offered/actions';
 import { getProfessionals } from '@/modules/professionals/actions';
 import { getActiveSubscription, getPendingSubscription, initiateCheckout, initiateCheckoutCash } from '@/modules/billing/actions';
 import { getPlans } from '@/modules/plans/actions';
+import { getPlanesArchivo } from '@/modules/planArchivos/actions';
+import { prisma } from '@/lib/db';
 import { FEATURE_FLAGS } from '@/lib/flags';
 import MobileMenu from '@/app/components/MobileMenu';
 import AgendaFilters from './AgendaFilters';
@@ -34,10 +36,12 @@ export default async function ClientDashboard({
   const servicesRes = await getServices();
   const professionalsRes = await getProfessionals();
   const turnosRes = await getTurnos();
-  const [subRes, pendingSubRes, plansRes] = await Promise.all([
+  const [subRes, pendingSubRes, plansRes, planArchivos, tienePrograma] = await Promise.all([
     getActiveSubscription(session.id),
     getPendingSubscription(session.id),
     getPlans(),
+    getPlanesArchivo(session.id),
+    prisma.programa.findFirst({ where: { clientId: session.id }, select: { id: true } }),
   ]);
 
   const services = servicesRes.success ? servicesRes.services || [] : [];
@@ -239,11 +243,24 @@ export default async function ClientDashboard({
                 Suscripciones
               </Link>
             )}
-            <Link 
-              href="/client/dashboard?tab=cuenta" 
+            <Link
+              href="/client/dashboard?tab=misplanes"
               className={`p-3.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2.5 border ${
-                activeTab === 'cuenta' 
-                  ? 'bg-primary text-white border-primary shadow-sm' 
+                activeTab === 'misplanes'
+                  ? 'bg-primary text-white border-primary shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
+              }`}
+            >
+              <svg className={`w-4 h-4 transition-colors ${activeTab === 'misplanes' ? 'text-white' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Mis Planes
+            </Link>
+            <Link
+              href="/client/dashboard?tab=cuenta"
+              className={`p-3.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2.5 border ${
+                activeTab === 'cuenta'
+                  ? 'bg-primary text-white border-primary shadow-sm'
                   : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
               }`}
             >
@@ -509,7 +526,80 @@ export default async function ClientDashboard({
               </div>
             )}
 
-            {/* MODULE 4: CAMBIAR CONTRASEÑA */}
+            {/* MODULE 4: MIS PLANES */}
+            {activeTab === 'misplanes' && (
+              <div className="space-y-6">
+                {/* Programa de entrenamiento generado */}
+                {tienePrograma && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="font-title text-xl text-primary font-bold">Programa de Entrenamiento</h2>
+                        <p className="text-xs text-slate-500 mt-0.5">Tu programa personalizado generado por el profesional.</p>
+                      </div>
+                    </div>
+                    <a
+                      href={`/professional/programas/${session.id}/print`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Ver / Exportar PDF
+                    </a>
+                  </div>
+                )}
+
+                {/* Archivos subidos por el profesional */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                  <h2 className="font-title text-xl text-primary font-bold mb-1">Documentos del Profesional</h2>
+                  <p className="text-xs text-slate-500 mb-5">Planes, informes y materiales que tu kinesiólogo compartió con vos.</p>
+
+                  {planArchivos.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <svg className="w-10 h-10 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-sm text-slate-400 font-semibold">Todavía no hay documentos compartidos.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {planArchivos.map((a: any) => (
+                        <div key={a.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-100 hover:border-primary/30 hover:bg-slate-50/50 transition-all group">
+                          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 truncate">{a.nombre}</p>
+                            <p className="text-[11px] text-slate-400">
+                              {(a.tamano / 1024).toFixed(0)} KB · {new Date(a.createdAt).toLocaleDateString('es-AR')}
+                            </p>
+                          </div>
+                          <a
+                            href={`/api/plan-archivo/${a.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-xs font-bold text-primary hover:text-primary/80 border border-primary/20 hover:border-primary/40 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Ver
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {!tienePrograma && planArchivos.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center">Tu profesional todavía no cargó materiales para vos.</p>
+                )}
+              </div>
+            )}
+
+            {/* MODULE 5: CAMBIAR CONTRASEÑA */}
             {activeTab === 'cuenta' && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 max-w-md">
                 <h2 className="font-title text-xl text-primary font-bold mb-2">Seguridad de la Cuenta</h2>

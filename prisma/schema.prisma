@@ -1,5 +1,6 @@
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -45,6 +46,9 @@ model User {
   subscriptions    Subscription[]
   dinamometrias    Dinamometria[] @relation("ClienteDinamo")
   fichas           FichaEvaluacion[] @relation("ClienteFicha")
+  programas        Programa[]    @relation("ClientePrograma")
+  planilla         PlanillaAtleta? @relation("ClientePlanilla")
+  planesArchivo    PlanArchivo[] @relation("ClientePlanArchivo")
 
   @@index([email])
   @@index([status])
@@ -153,6 +157,20 @@ model Subscription {
   @@index([userId])
 }
 
+model PlanArchivo {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    User     @relation("ClientePlanArchivo", fields: [clientId], references: [id], onDelete: Cascade)
+  nombre    String
+  tipo      String   @default("application/pdf")
+  tamano    Int      // bytes
+  contenido String   @db.Text // base64
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
 model FichaEvaluacion {
   id          String   @id @default(uuid())
   fecha       DateTime @default(now())
@@ -188,6 +206,128 @@ model FichaEvaluacion {
 
   @@index([clientId])
   @@index([fecha])
+}
+
+model Ejercicio {
+  id          String   @id @default(uuid())
+  nombre      String
+  patron      String
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([activo])
+  @@index([patron])
+  programaEjercicios ProgramaEjercicio[]
+}
+
+model PlanillaAtleta {
+  id               String   @id @default(uuid())
+  clientId         String   @unique
+  client           User     @relation("ClientePlanilla", fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Datos personales
+  fechaNacimiento  String?
+  pesoCorporal     Float?
+  largoTibia       Float?
+  lugarResidencia  String?
+  diferenciaHoraria String?
+  telefono         String?
+
+  // Lesión & evolución
+  fechaCxLesion    String?
+  evolucionMeses   Int?
+  fechaInicioRh    String?
+  evolucionRhRf    String?
+  lesionesCx       String?
+  fechasLesiones   String?
+  antecedentes     String?
+  comportDolor     String?
+  estudiosComp     String?
+  trabajoProfesion String?
+
+  // Objetivos
+  motivoConsulta   String?
+  expectativas     String?
+  objCorto         String?
+  objMediano       String?
+  objLargo         String?
+
+  // Experiencia deportiva
+  tiempoEntrenando  String?
+  vecesXSemana      String?
+  tipoEntrenamiento String?
+  lesionesPrevias   String?
+
+  // Disponibilidad semanal (JSON: { lun: { actividad, intensidad, obs }, ... })
+  disponibilidad   Json?
+
+  // Materiales / lugar
+  dondeEntrenar    String?
+  elementosDisp    String?
+  tiempoDisponible String?
+
+  // Observaciones generales
+  observaciones    String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Programa {
+  id        String      @id @default(uuid())
+  clientId  String
+  client    User        @relation("ClientePrograma", fields: [clientId], references: [id], onDelete: Cascade)
+  nombre    String      @default("Programa")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  dias      ProgramaDia[]
+
+  @@index([clientId])
+}
+
+model ProgramaDia {
+  id         String              @id @default(uuid())
+  programaId String
+  programa   Programa            @relation(fields: [programaId], references: [id], onDelete: Cascade)
+  semana     Int
+  dia        Int
+  ejercicios ProgramaEjercicio[]
+
+  @@unique([programaId, semana, dia])
+  @@index([programaId])
+}
+
+model ProgramaEjercicio {
+  id          String        @id @default(uuid())
+  diaId       String
+  diaPrograma ProgramaDia   @relation(fields: [diaId], references: [id], onDelete: Cascade)
+  ejercicioId String
+  ejercicio   Ejercicio     @relation(fields: [ejercicioId], references: [id])
+  orden       Int
+  categoria   String?
+  rir         String?
+  descanso    String?
+  tempo       String?
+  microPausa  String?
+  rounds      String?
+  timeCap     String?
+  series      ProgramaSerie[]
+
+  @@index([diaId])
+}
+
+model ProgramaSerie {
+  id                  String            @id @default(uuid())
+  programaEjercicioId String
+  ejercicioPrograma   ProgramaEjercicio @relation(fields: [programaEjercicioId], references: [id], onDelete: Cascade)
+  numero              Int
+  reps                Int?
+  pctRM               Float?
+  kg                  Float?
+
+  @@index([programaEjercicioId])
 }
 
 model Dinamometria {

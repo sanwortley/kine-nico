@@ -9,6 +9,7 @@ import { getProfessionals, createProfessional, toggleProfessionalActive, deleteP
 import { getTurnos, createTurnoAvailability, cancelTurno, completeTurno, deleteTurno } from '@/modules/turnos/actions';
 import { getAdminSubscriptions, adminAssignPlan, adminAdjustCredits, adminConfirmPayment } from '@/modules/billing/actions';
 import { getPlans, createPlan, updatePlan, togglePlanActive, deletePlan } from '@/modules/plans/actions';
+import { getEjercicios, createEjercicio, updateEjercicio, toggleEjercicioActivo, deleteEjercicio } from '@/modules/ejercicios/actions';
 import AdminMobileMenu from '@/app/components/AdminMobileMenu';
 import AddAvailabilityForm from './AddAvailabilityForm';
 import DeleteButton from '@/app/components/DeleteButton';
@@ -29,13 +30,14 @@ export default async function AdminDashboard({
   const params = await searchParams;
   const activeTab = params.tab || 'usuarios';
 
-  const [usersRes, servicesRes, professionalsRes, turnosRes, subsRes, plansRes] = await Promise.all([
+  const [usersRes, servicesRes, professionalsRes, turnosRes, subsRes, plansRes, ejerciciosRes] = await Promise.all([
     getAllUsers(),
     getServices(),
     getProfessionals(),
     getTurnos(),
     getAdminSubscriptions(),
     getPlans(),
+    getEjercicios(),
   ]);
 
   const users         = usersRes.success        ? usersRes.users        || [] : [];
@@ -44,6 +46,7 @@ export default async function AdminDashboard({
   const turnos        = turnosRes.success        ? turnosRes.turnos      || [] : [];
   const allSubs       = subsRes.success          ? (subsRes as any).subscriptions || [] : [];
   const plans         = plansRes.success         ? plansRes.plans        || [] : [];
+  const ejercicios    = ejerciciosRes.success    ? ejerciciosRes.ejercicios || [] : [];
 
   const now = new Date();
   // Map userId → active subscription (not expired)
@@ -269,6 +272,38 @@ export default async function AdminDashboard({
     redirect('/admin/dashboard?tab=planes&successMsg=Plan eliminado.');
   }
 
+  // ── Server actions — Ejercicios ──────────────────────────────────────────────
+
+  async function createEjercicioAction(formData: FormData) {
+    'use server';
+    const res = await createEjercicio(formData);
+    if (res.success) redirect('/admin/dashboard?tab=ejercicios&successMsg=Ejercicio creado con éxito.');
+    else redirect(`/admin/dashboard?tab=ejercicios&errorMsg=${encodeURIComponent(res.error || 'Error.')}`);
+  }
+
+  async function updateEjercicioAction(formData: FormData) {
+    'use server';
+    const res = await updateEjercicio(formData);
+    if (res.success) redirect('/admin/dashboard?tab=ejercicios&successMsg=Ejercicio actualizado.');
+    else redirect(`/admin/dashboard?tab=ejercicios&errorMsg=${encodeURIComponent(res.error || 'Error.')}`);
+  }
+
+  async function toggleEjercicioAction(formData: FormData) {
+    'use server';
+    const id     = formData.get('id') as string;
+    const activo = formData.get('activo') === 'true';
+    await toggleEjercicioActivo(id, activo);
+    revalidatePath('/admin/dashboard');
+    redirect('/admin/dashboard?tab=ejercicios');
+  }
+
+  async function deleteEjercicioAction(formData: FormData) {
+    'use server';
+    const id = formData.get('id') as string;
+    await deleteEjercicio(id);
+    redirect('/admin/dashboard?tab=ejercicios&successMsg=Ejercicio eliminado.');
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -290,6 +325,24 @@ export default async function AdminDashboard({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
                 Dinamometrías
+              </Link>
+              <Link
+                href="/professional/programas"
+                className="bg-purple-500/10 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap hover:bg-purple-500/20 transition-colors hidden sm:inline-flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                Programas
+              </Link>
+              <Link
+                href="/professional/planillas"
+                className="bg-amber-500/10 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap hover:bg-amber-500/20 transition-colors hidden sm:inline-flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Planillas
               </Link>
               <Link
                 href="/professional/ficha"
@@ -367,7 +420,7 @@ export default async function AdminDashboard({
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {/* Desktop tab bar */}
           <div className="hidden md:flex border-b border-slate-100 bg-slate-50/50">
-            {['usuarios', 'servicios', 'planes', 'profesionales', 'turnos', 'configuracion'].map((tab) => (
+            {['usuarios', 'servicios', 'planes', 'profesionales', 'turnos', 'ejercicios', 'configuracion'].map((tab) => (
               <Link
                 key={tab}
                 href={`/admin/dashboard?tab=${tab}`}
@@ -1004,6 +1057,140 @@ export default async function AdminDashboard({
                 </div>
               </div>
             )}
+
+            {/* ── TAB: EJERCICIOS ──────────────────────────────────────────── */}
+            {activeTab === 'ejercicios' && (() => {
+              const PATRONES = [
+                'Cadena Posterior', 'Cuádriceps Dominante', 'Empuje Horizontal',
+                'Empuje Vertical', 'Tirón Horizontal', 'Tirón Vertical',
+                'Core / Estabilización', 'Movilidad', 'Activación', 'Potencia',
+                'Isquiotibiales', 'Cadera Dominante', 'Accesorio', 'Cardio / Metabólico',
+              ];
+              const byPatron = ejercicios.reduce((acc: Record<string, any[]>, e: any) => {
+                if (!acc[e.patron]) acc[e.patron] = [];
+                acc[e.patron].push(e);
+                return acc;
+              }, {} as Record<string, any[]>);
+
+              return (
+                <div className="space-y-6">
+                  {/* Crear ejercicio */}
+                  <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
+                    <h3 className="font-title text-md text-primary font-bold mb-4">Agregar Ejercicio</h3>
+                    <form action={createEjercicioAction} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre del ejercicio *</label>
+                        <input name="nombre" required placeholder="Ej. Peso muerto rumano" className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:border-primary" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Patrón de movimiento *</label>
+                        <select name="patron" required className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:border-primary">
+                          <option value="">Seleccionar...</option>
+                          {PATRONES.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <button type="submit" className="w-full h-9 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors cursor-pointer">
+                          + Agregar
+                        </button>
+                      </div>
+                      <div className="sm:col-span-2 lg:col-span-4">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Descripción (opcional)</label>
+                        <input name="descripcion" placeholder="Descripción breve o indicaciones..." className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:border-primary" />
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-4 text-sm text-slate-500">
+                    <span><strong className="text-slate-800">{ejercicios.length}</strong> ejercicios</span>
+                    <span><strong className="text-green-600">{ejercicios.filter((e: any) => e.activo).length}</strong> activos</span>
+                    <span><strong className="text-slate-400">{ejercicios.filter((e: any) => !e.activo).length}</strong> inactivos</span>
+                  </div>
+
+                  {ejercicios.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-sm">
+                      No hay ejercicios todavía. Agregá el primero arriba.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {Object.entries(byPatron).sort(([a], [b]) => a.localeCompare(b)).map(([patron, items]) => (
+                        <div key={patron}>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 rounded-full bg-primary/40"></span>
+                            {patron} ({(items as any[]).length})
+                          </p>
+                          <div className="space-y-2">
+                            {(items as any[]).map((e: any) => (
+                              <div key={e.id} className={`rounded-2xl border overflow-hidden transition-all ${e.activo ? 'bg-white border-slate-100' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
+                                {/* Header */}
+                                <div className="flex items-center gap-3 px-4 py-3">
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`font-semibold text-sm ${e.activo ? 'text-slate-800' : 'text-slate-500'}`}>{e.nombre}</p>
+                                    {e.descripcion && <p className="text-xs text-slate-400 truncate">{e.descripcion}</p>}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {/* Toggle activo */}
+                                    <form action={toggleEjercicioAction}>
+                                      <input type="hidden" name="id" value={e.id} />
+                                      <input type="hidden" name="activo" value={String(e.activo)} />
+                                      <button type="submit" title={e.activo ? 'Desactivar' : 'Activar'}
+                                        className={`p-2 rounded-lg transition-colors cursor-pointer ${e.activo ? 'text-green-500 hover:bg-green-50' : 'text-slate-300 hover:bg-slate-100'}`}>
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+                                        </svg>
+                                      </button>
+                                    </form>
+                                    {/* Eliminar */}
+                                    <DeleteButton
+                                      action={deleteEjercicioAction}
+                                      id={e.id}
+                                      confirmMessage={`¿Eliminar "${e.nombre}"?`}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Edit inline */}
+                                <details className="group">
+                                  <summary className="list-none cursor-pointer border-t border-slate-100 px-4 py-2 flex items-center gap-2 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Editar
+                                  </summary>
+                                  <form action={updateEjercicioAction} className="px-4 pb-4 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-slate-50">
+                                    <input type="hidden" name="id" value={e.id} />
+                                    <div>
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre</label>
+                                      <input name="nombre" defaultValue={e.nombre} required className="w-full h-8 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Patrón</label>
+                                      <select name="patron" defaultValue={e.patron} required className="w-full h-8 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:border-primary">
+                                        {PATRONES.map(p => <option key={p} value={p}>{p}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Descripción</label>
+                                      <input name="descripcion" defaultValue={e.descripcion || ''} placeholder="Descripción o indicaciones..." className="w-full h-8 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                                    </div>
+                                    <div className="sm:col-span-2 flex justify-end">
+                                      <button type="submit" className="h-8 px-4 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors cursor-pointer">
+                                        Guardar cambios
+                                      </button>
+                                    </div>
+                                  </form>
+                                </details>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {activeTab === 'configuracion' && (
               <div className="max-w-md mx-auto bg-slate-50 p-6 rounded-2xl border border-slate-100">

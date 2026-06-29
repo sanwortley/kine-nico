@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
 
@@ -14,25 +15,34 @@ export async function createSession(user: { id: string; name: string; email: str
   });
 }
 
-export async function getSession() {
+// cache() deduplicates calls within the same server request — one DB query max per page load
+export const getSession = cache(async () => {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
-  if (!sessionCookie || !sessionCookie.value) return null;
+  if (!sessionCookie?.value) return null;
 
   try {
     const parsed = JSON.parse(sessionCookie.value);
-    const user = await prisma.user.findUnique({ where: { id: parsed.id } });
+    if (!parsed?.id) return null;
 
-    if (!user || user.status === 'REJECTED' || user.status === 'SUSPENDED') {
-      await destroySession();
+    try {
+      const user = await prisma.user.findUnique({ where: { id: parsed.id } });
+      if (!user || user.status === 'REJECTED' || user.status === 'SUSPENDED') {
+        await destroySession();
+        return null;
+      }
+      return { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status };
+    } catch {
+      // DB unreachable — trust the cookie so the user can still navigate
+      if (parsed.id && parsed.role && parsed.email) {
+        return { id: parsed.id, name: parsed.name, email: parsed.email, role: parsed.role, status: parsed.status };
+      }
       return null;
     }
-
-    return { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status };
   } catch {
     return null;
   }
-}
+});
 
 export async function destroySession() {
   const cookieStore = await cookies();
