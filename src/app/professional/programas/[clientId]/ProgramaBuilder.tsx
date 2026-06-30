@@ -70,6 +70,10 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
 
   const [data,         setData]        = useState<DayMap>(normalise);
   const [semana,       setSemana]       = useState(1);
+  // Total semanas: derived from saved data (at least 1)
+  const savedSemanas = Math.max(1, ...Object.keys(data).map(k => parseInt(k.split('-')[0])));
+  const [extraSemanas, setExtraSemanas] = useState(0);
+  const totalSemanas = Math.max(savedSemanas, 1 + extraSemanas);
   const [dia,          setDia]          = useState(1);
   const [selIdx,       setSelIdx]       = useState(0);
   const [search,       setSearch]       = useState('');
@@ -263,10 +267,16 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
 
         {/* Fila 2 móvil: semana + día */}
         <div className="flex items-center gap-2 px-3 h-10 border-t border-slate-100 sm:hidden">
-          <select value={semana} onChange={e => changeSemana(+e.target.value)}
-            className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary flex-1">
-            {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
-          </select>
+          <div className="flex items-center gap-1 flex-1">
+            <select value={semana} onChange={e => changeSemana(+e.target.value)}
+              className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary flex-1">
+              {Array.from({ length: totalSemanas }, (_, i) => i + 1).map(s => <option key={s} value={s}>Semana {s}</option>)}
+            </select>
+            {totalSemanas < 8 && (
+              <button onClick={() => { setExtraSemanas(e => e + 1); changeSemana(totalSemanas + 1); }}
+                className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 text-lg font-bold flex items-center justify-center shrink-0">+</button>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => { setDia(d => Math.max(1, d - 1)); setSelIdx(0); }}
               className="w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-bold cursor-pointer">‹</button>
@@ -288,12 +298,17 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             </div>
           </div>
           <div className="w-px h-8 bg-slate-200 shrink-0" />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Semana</span>
             <select value={semana} onChange={e => changeSemana(+e.target.value)}
               className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary">
-              {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
+              {Array.from({ length: totalSemanas }, (_, i) => i + 1).map(s => <option key={s} value={s}>Semana {s}</option>)}
             </select>
+            {totalSemanas < 8 && (
+              <button onClick={() => { setExtraSemanas(e => e + 1); changeSemana(totalSemanas + 1); }}
+                title="Agregar semana"
+                className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 text-lg font-bold flex items-center justify-center">+</button>
+            )}
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Día</span>
