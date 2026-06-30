@@ -41,7 +41,24 @@ export default async function ClientDashboard({
     getPendingSubscription(session.id),
     getPlans(),
     getPlanesArchivo(session.id),
-    prisma.programa.findFirst({ where: { clientId: session.id }, select: { id: true } }),
+    prisma.programa.findFirst({
+      where: { clientId: session.id, cerradoAt: null },
+      select: {
+        id: true, nombre: true,
+        dias: {
+          orderBy: [{ semana: 'asc' }, { dia: 'asc' }],
+          select: {
+            dia: true, semana: true,
+            ejercicios: {
+              orderBy: { orden: 'asc' },
+              select: {
+                ejercicio: { select: { nombre: true, videoUrl: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
   ]);
 
   const services = servicesRes.success ? servicesRes.services || [] : [];
@@ -530,27 +547,58 @@ export default async function ClientDashboard({
             {activeTab === 'misplanes' && (
               <div className="space-y-6">
                 {/* Programa de entrenamiento generado */}
-                {tienePrograma && (
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h2 className="font-title text-xl text-primary font-bold">Programa de Entrenamiento</h2>
-                        <p className="text-xs text-slate-500 mt-0.5">Tu programa personalizado generado por el profesional.</p>
+                {tienePrograma && (() => {
+                  const programa = tienePrograma as any;
+                  const diasSet = new Set<number>((programa.dias ?? []).map((d: any) => d.dia as number));
+                  const diasUnicos = Array.from(diasSet).sort((a, b) => a - b);
+                  const DAY_NAMES: Record<number, string> = { 1:'Lunes', 2:'Miércoles', 3:'Viernes', 4:'Martes', 5:'Jueves', 6:'Sábado', 7:'Domingo' };
+                  return (
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                        <div>
+                          <h2 className="font-title text-xl text-primary font-bold">Programa de Entrenamiento</h2>
+                          <p className="text-xs text-slate-500 mt-0.5">{programa.nombre} · {diasUnicos.length} días/semana</p>
+                        </div>
+                        <a href={`/professional/programas/${session.id}/print`} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 border border-primary/30 text-primary px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/5 transition-colors shrink-0">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Ver PDF
+                        </a>
+                      </div>
+
+                      <div className="space-y-4">
+                        {diasUnicos.map((diaNum: number) => {
+                          const diasData = (programa.dias ?? []).filter((d: any) => d.dia === diaNum);
+                          const ejsUnicos = diasData
+                            .flatMap((d: any) => d.ejercicios)
+                            .filter((e: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.ejercicio.nombre === e.ejercicio.nombre) === i);
+                          if (ejsUnicos.length === 0) return null;
+                          return (
+                            <div key={diaNum}>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{DAY_NAMES[diaNum] ?? `Día ${diaNum}`}</p>
+                              <div className="space-y-1">
+                                {ejsUnicos.map((e: any, i: number) => (
+                                  <div key={i} className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-50 last:border-0">
+                                    <span className="text-sm text-slate-700 truncate">{e.ejercicio.nombre}</span>
+                                    {e.ejercicio.videoUrl && (
+                                      <a href={e.ejercicio.videoUrl} target="_blank" rel="noopener noreferrer"
+                                        className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors">
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                        video
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <a
-                      href={`/professional/programas/${session.id}/print`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Ver / Exportar PDF
-                    </a>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Archivos subidos por el profesional */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">

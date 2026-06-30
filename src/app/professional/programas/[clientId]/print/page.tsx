@@ -59,6 +59,7 @@ type DbEj = {
   nombre: string; patron: string; categoria: string | null;
   rir: string | null; descanso: string | null; tempo: string | null;
   rounds: string | null; timeCap: string | null; series: DbSerie[];
+  videoUrl?: string | null;
 };
 
 // Detect unit from exercise name so "Aceleración técnica 10-20 m" → " m",
@@ -172,7 +173,7 @@ export default async function PrintProgramaPage({
             ejercicios: {
               orderBy: { orden: 'asc' },
               include: {
-                ejercicio: { select: { nombre: true, patron: true } },
+                ejercicio: { select: { nombre: true, patron: true, videoUrl: true } },
                 series:    { orderBy: { numero: 'asc' } },
               },
             },
@@ -194,7 +195,7 @@ export default async function PrintProgramaPage({
   const semanas = [...new Set(programa.dias.map(d => d.semana))].sort((a, b) => a - b);
   const dias    = [...new Set(programa.dias.map(d => d.dia))].sort((a, b) => a - b);
 
-  type EjRow = { nombre: string; patron: string; notas: string; categoria: string | null; bySemana: Record<number, string> };
+  type EjRow = { nombre: string; patron: string; notas: string; categoria: string | null; videoUrl?: string | null; bySemana: Record<number, string> };
 
   function buildDayRows(diaNum: number): EjRow[] {
     const bySem: Record<number, DbEj[]> = {};
@@ -202,6 +203,7 @@ export default async function PrintProgramaPage({
       if (d.dia !== diaNum) continue;
       bySem[d.semana] = d.ejercicios.map(e => ({
         nombre: e.ejercicio.nombre, patron: e.ejercicio.patron,
+        videoUrl: e.ejercicio.videoUrl,
         categoria: e.categoria, rir: e.rir, descanso: e.descanso,
         tempo: e.tempo, rounds: e.rounds, timeCap: e.timeCap,
         series: e.series.map(s => ({ numero: s.numero, reps: s.reps, pctRM: s.pctRM, kg: s.kg })),
@@ -215,7 +217,7 @@ export default async function PrintProgramaPage({
       if (r.rir)      parts.push(`Excéntrico ${r.rir}`);
       if (r.descanso) parts.push(`Pausa ${r.descanso}`);
       if (r.tempo)    parts.push(`Tempo ${r.tempo}`);
-      return { nombre: r.nombre, patron: r.patron, notas: parts.join(' · '), categoria: r.categoria, bySemana };
+      return { nombre: r.nombre, patron: r.patron, notas: parts.join(' · '), categoria: r.categoria, videoUrl: r.videoUrl, bySemana };
     });
   }
 
@@ -445,8 +447,16 @@ export default async function PrintProgramaPage({
                       <div key={rIdx} style={{ display: 'grid', gridTemplateColumns: `2fr ${semanas.map(() => '1fr').join(' ')}`, borderBottom: '1px solid #f1f5f9', background: rIdx % 2 === 0 ? 'white' : '#fafafa' }}>
                         {/* Exercise name */}
                         <div style={{ padding: '5px 7px', borderRight: '1px solid #f1f5f9' }}>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: '#0f172a', textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: '#cbd5e1', textUnderlineOffset: 3 }}>
-                            {row.nombre}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: '#0f172a', textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: '#cbd5e1', textUnderlineOffset: 3 }}>
+                              {row.nombre}
+                            </span>
+                            {row.videoUrl && (
+                              <a href={row.videoUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 7.5, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '1px 5px', textDecoration: 'none' }}>
+                                ▶ video
+                              </a>
+                            )}
                           </div>
                           {row.notas && (
                             <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 1, fontStyle: 'italic' }}>{row.notas}</div>
