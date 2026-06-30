@@ -10,7 +10,7 @@ type Serie    = { reps: string; pctRM: string; kg: string };
 type EjSesion = EjercicioPayload & { tempId: string };
 type DayMap   = Record<string, EjSesion[]>;
 
-interface Ejercicio { id: string; nombre: string; patron: string }
+interface Ejercicio { id: string; nombre: string; patron: string; videoUrl?: string | null }
 
 interface Props {
   clientId:       string;
@@ -337,7 +337,8 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
                   <div className={`w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center transition-colors ${active ? 'bg-accent border-accent' : 'border-slate-300'}`}>
                     {active && <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>}
                   </div>
-                  <span className="truncate font-medium">{ej.nombre}</span>
+                  <span className="truncate font-medium flex-1">{ej.nombre}</span>
+                  {ej.videoUrl && <svg className="w-3 h-3 shrink-0 text-red-400 opacity-70" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>}
                 </div>
               );
             })}
@@ -396,6 +397,13 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-full">
                       {selected.patron || 'Sin patrón'}
                     </span>
+                    {(() => { const ej = ejercicios.find(e => e.id === selected.ejercicioId); return ej?.videoUrl ? (
+                      <a href={ej.videoUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100 hover:bg-red-100 transition-colors">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        Ver video
+                      </a>
+                    ) : null; })()}
                     <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isComplete ? 'bg-accent/10 text-accent' : 'bg-amber-50 text-amber-600'}`}>
                       {isComplete ? '✓ Completo' : `Incompleto ${Math.round(progress * 100)}%`}
                     </span>
