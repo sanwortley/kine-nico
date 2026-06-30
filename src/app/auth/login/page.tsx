@@ -56,13 +56,6 @@ export default function LoginPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-slate-100">
-          
-          <div className="mb-4 p-3.5 bg-blue-50 border border-blue-150 rounded-xl text-xs text-slate-700 leading-normal">
-            💡 <strong>Credenciales de prueba disponibles:</strong><br />
-            • Admin: <code className="bg-white/70 px-1 rounded">admin@njk.com</code> / <code className="bg-white/70 px-1 rounded">admin</code><br />
-            • Paciente Activo: <code className="bg-white/70 px-1 rounded">paciente@gmail.com</code> / <code className="bg-white/70 px-1 rounded">paciente</code><br />
-            • Paciente Pendiente: <code className="bg-white/70 px-1 rounded">pendiente@gmail.com</code> / <code className="bg-white/70 px-1 rounded">paciente</code>
-          </div>
 
           {error && (
             <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 text-sm font-sans font-semibold border border-red-100">
