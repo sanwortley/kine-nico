@@ -7,7 +7,7 @@ const fetchEjercicios = unstable_cache(
   async () =>
     prisma.ejercicio.findMany({
       orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
-      select: { id: true, nombre: true, patron: true, videoUrl: true, activo: true },
+      select: { id: true, nombre: true, patron: true, descripcion: true, videoUrl: true, activo: true },
     }),
   ['ejercicios'],
   { tags: ['ejercicios'] },
