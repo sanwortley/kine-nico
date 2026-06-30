@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { EjercicioPayload } from '@/modules/programas/actions';
 import { cerrarYNuevoBloque } from '@/modules/programas/actions';
 
@@ -85,15 +85,50 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
   const [nombreNuevo,  setNombreNuevo]  = useState('');
   const [cerrando,     setCerrando]     = useState(false);
 
+  // Auto-save: track dirty keys and flush after 1.5 s of inactivity
+  const dataRef  = useRef(data);
+  const dirtyRef = useRef<Set<string>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { dataRef.current = data; }, [data]);
+
+  const flushSave = useCallback(async () => {
+    const keys = [...dirtyRef.current];
+    if (!keys.length) return;
+    dirtyRef.current.clear();
+    setSaving(true);
+    setSavedMsg('');
+    for (const k of keys) {
+      const [s, d] = k.split('-').map(Number);
+      const ses = dataRef.current[k] ?? [];
+      const payload: EjercicioPayload[] = ses.map(e => ({
+        ejercicioId: e.ejercicioId, nombre: e.nombre, patron: e.patron,
+        categoria: e.categoria, rir: e.rir, descanso: e.descanso, tempo: e.tempo,
+        microPausa: e.microPausa, rounds: e.rounds, timeCap: e.timeCap,
+        series: e.series.map((s2, idx) => ({ numero: idx + 1, reps: s2.reps, pctRM: s2.pctRM, kg: s2.kg })),
+      }));
+      await saveAction(clientId, s, d, payload);
+    }
+    setSaving(false);
+    setSavedMsg('✓ Guardado');
+    setTimeout(() => setSavedMsg(''), 2000);
+  }, [clientId, saveAction]);
+
+  const scheduleAutoSave = useCallback((dirtyKey: string) => {
+    dirtyRef.current.add(dirtyKey);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(flushSave, 1500);
+  }, [flushSave]);
+
   const key      = dayKey(semana, dia);
   const session: EjSesion[] = data[key] ?? [];
   const selected = session[selIdx] ?? null;
 
-  // Pre-populate from Semana 1 when switching to an empty semana
+  // Pre-populate from Semana 1 when switching to an empty semana, then auto-save
   const changeSemana = useCallback((s: number) => {
     setSemana(s);
     setSelIdx(0);
     if (s > 1) {
+      const populated: string[] = [];
       setData(prev => {
         const allDias = [...new Set(Object.keys(prev).map(k => parseInt(k.split('-')[1])))];
         const next = { ...prev };
@@ -103,17 +138,20 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             const base = prev[dayKey(1, d)];
             if (base && base.length > 0) {
               next[targetKey] = base.map(e => ({ ...e, tempId: uid() }));
+              populated.push(targetKey);
             }
           }
         }
         return next;
       });
+      populated.forEach(k => scheduleAutoSave(k));
     }
-  }, []);
+  }, [scheduleAutoSave]);
 
   const setSession = useCallback((fn: (prev: EjSesion[]) => EjSesion[]) => {
     setData(d => ({ ...d, [key]: fn(d[key] ?? []) }));
-  }, [key]);
+    scheduleAutoSave(key);
+  }, [key, scheduleAutoSave]);
 
   // ── library ──────────────────────────────────────────────────────────────
   const patrones  = [...new Set(ejercicios.map(e => e.patron))].sort();
