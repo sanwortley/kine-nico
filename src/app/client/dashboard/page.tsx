@@ -546,8 +546,8 @@ export default async function ClientDashboard({
             {/* MODULE 4: MIS PLANES */}
             {activeTab === 'misplanes' && (
               <div className="space-y-6">
-                {/* Programa de entrenamiento generado */}
-                {tienePrograma && (() => {
+                {/* Programa de entrenamiento — solo visible con suscripción activa */}
+                {tienePrograma && activeSub && (() => {
                   const programa = tienePrograma as any;
                   const diasSet = new Set<number>((programa.dias ?? []).map((d: any) => d.dia as number));
                   const diasUnicos = Array.from(diasSet).sort((a, b) => a - b);
