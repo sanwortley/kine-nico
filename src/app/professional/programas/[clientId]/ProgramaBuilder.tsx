@@ -85,6 +85,28 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
   const session: EjSesion[] = data[key] ?? [];
   const selected = session[selIdx] ?? null;
 
+  // Pre-populate from Semana 1 when switching to an empty semana
+  const changeSemana = useCallback((s: number) => {
+    setSemana(s);
+    setSelIdx(0);
+    if (s > 1) {
+      setData(prev => {
+        const allDias = [...new Set(Object.keys(prev).map(k => parseInt(k.split('-')[1])))];
+        const next = { ...prev };
+        for (const d of allDias) {
+          const targetKey = dayKey(s, d);
+          if (!prev[targetKey] || prev[targetKey].length === 0) {
+            const base = prev[dayKey(1, d)];
+            if (base && base.length > 0) {
+              next[targetKey] = base.map(e => ({ ...e, tempId: uid() }));
+            }
+          }
+        }
+        return next;
+      });
+    }
+  }, []);
+
   const setSession = useCallback((fn: (prev: EjSesion[]) => EjSesion[]) => {
     setData(d => ({ ...d, [key]: fn(d[key] ?? []) }));
   }, [key]);
@@ -241,7 +263,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
 
         {/* Fila 2 móvil: semana + día */}
         <div className="flex items-center gap-2 px-3 h-10 border-t border-slate-100 sm:hidden">
-          <select value={semana} onChange={e => { setSemana(+e.target.value); setSelIdx(0); }}
+          <select value={semana} onChange={e => changeSemana(+e.target.value)}
             className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary flex-1">
             {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
           </select>
@@ -268,7 +290,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
           <div className="w-px h-8 bg-slate-200 shrink-0" />
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Semana</span>
-            <select value={semana} onChange={e => { setSemana(+e.target.value); setSelIdx(0); }}
+            <select value={semana} onChange={e => changeSemana(+e.target.value)}
               className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-700 focus:outline-none focus:border-primary">
               {[1,2,3,4].map(s => <option key={s} value={s}>Semana {s}</option>)}
             </select>
