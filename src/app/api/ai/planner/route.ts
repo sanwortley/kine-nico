@@ -23,6 +23,11 @@ function todayArStr() {
 
 const TOOLS: Anthropic.Tool[] = [
   {
+    name: 'ver_ejercicios',
+    description: 'Devuelve todos los ejercicios disponibles agrupados por patrón. Llamalo UNA SOLA VEZ antes de crear_programa.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
     name: 'ver_paciente',
     description: 'Datos clínicos: ficha de evaluación, dinamometrías, programas anteriores de un paciente',
     input_schema: {
@@ -202,6 +207,24 @@ function makeExecutor(createdById: string) {
   return async function executeTool(name: string, input: Record<string, any>): Promise<string> {
     try {
       switch (name) {
+
+        // ── Ejercicios ─────────────────────────────────────────────────────────
+
+        case 'ver_ejercicios': {
+          const ejercicios = await prisma.ejercicio.findMany({
+            where: { activo: true },
+            select: { nombre: true, patron: true },
+            orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
+          });
+          const grouped: Record<string, string[]> = {};
+          for (const e of ejercicios) {
+            if (!grouped[e.patron]) grouped[e.patron] = [];
+            grouped[e.patron].push(e.nombre);
+          }
+          return Object.entries(grouped)
+            .map(([p, ns]) => `## ${p}\n${ns.join(', ')}`)
+            .join('\n\n');
+        }
 
         // ── Programas ──────────────────────────────────────────────────────────
 
@@ -546,17 +569,12 @@ export async function POST(req: Request) {
 
   const executeTool = makeExecutor(session.id);
 
-  // Pre-load context
-  const [clientes, ejercicios, servicios, profesionales, planes] = await Promise.all([
+  // Pre-load context (exercises excluded — loaded on-demand via ver_ejercicios tool)
+  const [clientes, servicios, profesionales, planes] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'CLIENT', status: 'ACTIVE' },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
-    }),
-    prisma.ejercicio.findMany({
-      where: { activo: true },
-      select: { nombre: true, patron: true },
-      orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
     }),
     prisma.service.findMany({
       where: { active: true },
@@ -574,12 +592,6 @@ export async function POST(req: Request) {
       orderBy: { nombre: 'asc' },
     }),
   ]);
-
-  const grouped: Record<string, string[]> = {};
-  for (const e of ejercicios) {
-    if (!grouped[e.patron]) grouped[e.patron] = [];
-    grouped[e.patron].push(e.nombre);
-  }
 
   const hoyAr = new Date().toLocaleDateString('es-AR', {
     timeZone: 'America/Argentina/Cordoba',
@@ -602,12 +614,9 @@ ${profesionales.map(p => `${p.name} → ID: ${p.id}`).join('\n')}
 PLANES (para asignar_plan):
 ${planes.map(p => `${(p as any).nombre} (${(p as any).limiteTurnos} sesiones) → ID: ${p.id}`).join('\n')}
 
-EJERCICIOS POR PATRÓN (usá el NOMBRE EXACTO en crear_programa):
-${Object.entries(grouped).map(([p, ns]) => `## ${p}\n${ns.join(', ')}`).join('\n\n')}
-
 REGLAS GENERALES:
-- Para cancelar un turno, primero llamá ver_agenda para obtener el ID, luego cancelar_turno.
-- Para programas: planificá las 4 semanas COMPLETAS antes de llamar crear_programa. Llamalo UNA SOLA VEZ.
+- Para crear un programa: primero llamá ver_ejercicios UNA SOLA VEZ para ver la lista, luego planificá las 4 semanas COMPLETAS y llamá crear_programa UNA SOLA VEZ.
+- Para cancelar un turno: primero llamá ver_agenda para obtener el ID, luego cancelar_turno.
 - Para turnos recurrentes: usá agendar_turnos UNA SOLA VEZ con todos los datos.
 - Confirmá siempre al profesional qué acción se realizó y con qué resultado.`;
 
@@ -619,6 +628,17 @@ REGLAS GENERALES:
         controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
       };
 
+      // Keepalive: send a blank line every 15s so iOS Safari doesn't drop the connection
+      let keepalive: ReturnType<typeof setInterval> | null = null;
+      const startKeepalive = () => {
+        keepalive = setInterval(() => {
+          try { controller.enqueue(encoder.encode('\n')); } catch {}
+        }, 15_000);
+      };
+      const stopKeepalive = () => {
+        if (keepalive) { clearInterval(keepalive); keepalive = null; }
+      };
+
       try {
         const allMessages: Anthropic.MessageParam[] = [...messages];
         let iterations = 0;
@@ -626,6 +646,7 @@ REGLAS GENERALES:
         while (iterations < 10) {
           iterations++;
 
+          startKeepalive();
           const response = await client.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 8000,
@@ -633,6 +654,7 @@ REGLAS GENERALES:
             tools: TOOLS,
             messages: allMessages,
           });
+          stopKeepalive();
 
           if (response.stop_reason === 'end_turn') {
             const text = response.content.find(b => b.type === 'text')?.text ?? '';
@@ -649,6 +671,7 @@ REGLAS GENERALES:
               if (block.type !== 'tool_use') continue;
 
               const labels: Record<string, string> = {
+                ver_ejercicios: 'Cargando lista de ejercicios...',
                 ver_paciente: 'Leyendo datos del paciente...',
                 crear_programa: 'Creando programa en la plataforma...',
                 agendar_turnos: 'Agendando turnos en el calendario...',
@@ -674,6 +697,7 @@ REGLAS GENERALES:
             allMessages.push({ role: 'user', content: toolResults });
 
             if (actionCompleted) {
+              startKeepalive();
               const final = await client.messages.create({
                 model: 'claude-sonnet-4-6',
                 max_tokens: 1000,
@@ -681,6 +705,7 @@ REGLAS GENERALES:
                 tools: TOOLS,
                 messages: allMessages,
               });
+              stopKeepalive();
               const text = final.content.find(b => b.type === 'text')?.text ?? 'Acción completada.';
               send({ type: 'done', reply: text });
               break;
@@ -692,8 +717,10 @@ REGLAS GENERALES:
           break;
         }
       } catch (err: any) {
+        stopKeepalive();
         send({ type: 'done', reply: `Error: ${err.message}` });
       } finally {
+        stopKeepalive();
         controller.close();
       }
     },
