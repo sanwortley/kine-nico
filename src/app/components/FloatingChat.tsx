@@ -213,15 +213,7 @@ export default function FloatingChat() {
         onClick={() => setOpen(o => !o)}
         className="fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all overflow-hidden"
       >
-        {open ? (
-          <div className="w-full h-full bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-        ) : (
-          <img src="/icono_chatbot.png" alt="Asistente IA" className="w-full h-full object-cover" />
-        )}
+        <img src="/icono_chatbot.png" alt="Asistente IA" className="w-full h-full object-cover" />
       </button>
     </>
   );
