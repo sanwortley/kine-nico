@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat, Raleway, Open_Sans } from "next/font/google";
 import "./globals.css";
+import FloatingChat from "@/app/components/FloatingChat";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -35,7 +36,10 @@ export default function RootLayout({
       lang="es-AR"
       className={`${montserrat.variable} ${raleway.variable} ${openSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900">{children}</body>
+      <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900">
+        {children}
+        <FloatingChat />
+      </body>
     </html>
   );
 }
