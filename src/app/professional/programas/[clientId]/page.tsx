@@ -7,6 +7,7 @@ import { saveDia } from '@/modules/programas/actions';
 import ProgramaBuilder from './ProgramaBuilder';
 import DeleteProgramaButton from './DeleteProgramaButton';
 import LimpiarProgramaButton from './LimpiarProgramaButton';
+import ReopenProgramaButton from './ReopenProgramaButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,6 +106,7 @@ export default async function ProgramaPage({
                       Cerrado {new Date(b.cerradoAt).toLocaleDateString('es-AR')}
                     </p>
                   </div>
+                  <ReopenProgramaButton programaId={b.id} clientId={clientId} />
                   <a
                     href={`/professional/programas/${clientId}/print?programaId=${b.id}`}
                     target="_blank"

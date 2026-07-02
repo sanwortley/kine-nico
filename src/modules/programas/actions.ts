@@ -59,6 +59,23 @@ export async function deletePrograma(programaId: string) {
   return { success: true };
 }
 
+export async function reabrirPrograma(programaId: string, clientId: string) {
+  // If there's an active block with no days, remove it to make room
+  const activo = await prisma.programa.findFirst({
+    where: { clientId, cerradoAt: null },
+    include: { _count: { select: { dias: true } } },
+  });
+  if (activo) {
+    if ((activo as any)._count.dias === 0) {
+      await prisma.programa.delete({ where: { id: activo.id } });
+    } else {
+      return { success: false, error: 'Hay un bloque activo con ejercicios. Cerralo primero.' };
+    }
+  }
+  await prisma.programa.update({ where: { id: programaId }, data: { cerradoAt: null } });
+  return { success: true };
+}
+
 export async function limpiarPrograma(clientId: string) {
   const programa = await prisma.programa.findFirst({
     where: { clientId, cerradoAt: null },
