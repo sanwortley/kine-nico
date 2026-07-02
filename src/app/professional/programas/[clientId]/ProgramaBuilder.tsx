@@ -275,7 +275,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
   const isComplete   = selected ? progress === 1 : false;
 
   return (
-    <div className="bg-slate-50 h-screen flex flex-col overflow-hidden font-sans">
+    <div className="bg-slate-50 h-dvh flex flex-col overflow-hidden font-sans">
 
       {/* ── TOP BAR ──────────────────────────────────────────────────────── */}
       <header className="bg-white border-b border-slate-200 shrink-0 shadow-sm">
