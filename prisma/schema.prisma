@@ -332,6 +332,21 @@ model ProgramaSerie {
   @@index([programaEjercicioId])
 }
 
+model AiPlanMemoria {
+  id         String   @id @default(uuid())
+  clientId   String?
+  objetivo   String
+  tags       String[]
+  diasSemana Int
+  semanas    Int      @default(4)
+  planJson   Json
+  prompt     String?  @db.Text
+  rating     Int?
+  createdAt  DateTime @default(now())
+
+  @@index([diasSemana])
+}
+
 model Dinamometria {
   id              String    @id @default(uuid())
   fecha           DateTime  @default(now())
