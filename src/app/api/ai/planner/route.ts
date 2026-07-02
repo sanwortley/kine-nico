@@ -230,10 +230,11 @@ EJERCICIOS POR PATRÓN (usá el NOMBRE EXACTO en crear_programa):
 ${Object.entries(grouped).map(([p, ns]) => `## ${p}\n${ns.join(', ')}`).join('\n\n')}
 
 REGLAS:
-- Creá siempre 4 semanas: S1 adaptación (RIR 3-4), S2 carga (RIR 2), S3 choque (RIR 1), S4 descarga (vol -30%)
+- Planificá el programa COMPLETO antes de llamar crear_programa. Llamalo UNA SOLA VEZ con los 4 semanas completas.
+- Creá 4 semanas: S1 adaptación (RIR 3-4), S2 carga (RIR 2), S3 choque (RIR 1), S4 descarga (vol -30%)
 - Balance por sesión: movilidad + fuerza principal (2-3 ej) + accesorio (2-3 ej)
 - Fuerza: 4x4-6 reps | Hipertrofia: 3-4x8-12 | Movilidad: 2-3x10
-- Explicá brevemente las decisiones clínicas al final`;
+- Explicá brevemente las decisiones clínicas DESPUÉS de que crear_programa confirme el éxito`;
 
   const encoder = new TextEncoder();
 
@@ -267,6 +268,7 @@ REGLAS:
           if (response.stop_reason === 'tool_use') {
             allMessages.push({ role: 'assistant', content: response.content });
             const toolResults: Anthropic.ToolResultBlockParam[] = [];
+            let programaCreado = false;
 
             for (const block of response.content) {
               if (block.type !== 'tool_use') continue;
@@ -277,9 +279,28 @@ REGLAS:
 
               const result = await executeTool(block.name, block.input as Record<string, any>);
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+
+              if (block.name === 'crear_programa') {
+                try { if (JSON.parse(result).success) programaCreado = true; } catch {}
+              }
             }
 
             allMessages.push({ role: 'user', content: toolResults });
+
+            // After a successful crear_programa, get ONE final message then stop
+            if (programaCreado) {
+              const final = await client.messages.create({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 1000,
+                system,
+                tools: TOOLS,
+                messages: allMessages,
+              });
+              const text = final.content.find(b => b.type === 'text')?.text ?? 'Programa creado exitosamente.';
+              send({ type: 'done', reply: text });
+              break;
+            }
+
             continue;
           }
 
