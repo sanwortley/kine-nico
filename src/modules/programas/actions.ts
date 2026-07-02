@@ -54,6 +54,11 @@ export async function getHistorialProgramas(clientId: string) {
   });
 }
 
+export async function deletePrograma(programaId: string) {
+  await prisma.programa.delete({ where: { id: programaId } });
+  return { success: true };
+}
+
 // Close current block and open a new one
 export async function cerrarYNuevoBloque(clientId: string, nombreNuevo: string) {
   const activo = await prisma.programa.findFirst({ where: { clientId, cerradoAt: null } });
