@@ -183,6 +183,17 @@ const TOOLS: Anthropic.Tool[] = [
       required: ['clientId', 'planId'],
     },
   },
+  {
+    name: 'limpiar_programa',
+    description: 'Elimina todos los ejercicios del programa activo de un paciente, dejándolo en blanco.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        clientId: { type: 'string' },
+      },
+      required: ['clientId'],
+    },
+  },
 ];
 
 // ── Tool executor (factory to capture session ID) ──────────────────────────────
@@ -492,6 +503,17 @@ function makeExecutor(createdById: string) {
           });
         }
 
+        case 'limpiar_programa': {
+          const { clientId } = input;
+          const programa = await prisma.programa.findFirst({
+            where: { clientId, cerradoAt: null },
+            select: { id: true, nombre: true },
+          });
+          if (!programa) return JSON.stringify({ success: false, error: 'No hay programa activo para ese paciente.' });
+          await prisma.programaDia.deleteMany({ where: { programaId: programa.id } });
+          return JSON.stringify({ success: true, mensaje: `Programa "${(programa as any).nombre}" limpiado. Todos los ejercicios fueron eliminados.` });
+        }
+
         default:
           return `Herramienta desconocida: ${name}`;
       }
@@ -505,7 +527,7 @@ function makeExecutor(createdById: string) {
 
 const ACTION_TOOLS = new Set([
   'crear_programa', 'agendar_turnos', 'cancelar_turno',
-  'registrar_nota', 'crear_ficha', 'asignar_plan',
+  'registrar_nota', 'crear_ficha', 'asignar_plan', 'limpiar_programa',
 ]);
 
 // ── API Route ──────────────────────────────────────────────────────────────────
@@ -637,6 +659,7 @@ REGLAS GENERALES:
                 registrar_nota: 'Registrando nota clínica...',
                 crear_ficha: 'Creando ficha de evaluación...',
                 asignar_plan: 'Asignando plan al paciente...',
+                limpiar_programa: 'Limpiando ejercicios del programa...',
               };
               send({ type: 'event', data: labels[block.name] ?? 'Procesando...' });
 

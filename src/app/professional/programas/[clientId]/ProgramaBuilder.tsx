@@ -19,6 +19,7 @@ interface Props {
   ejercicios:     Ejercicio[];
   initialData:    Record<string, Omit<EjercicioPayload, never>[]>;
   saveAction:     (clientId: string, semana: number, dia: number, ejs: EjercicioPayload[]) => Promise<{ success: boolean }>;
+  limpiarButton?: React.ReactNode;
 }
 
 // ── constants ────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ function ParamField({ label, value, onChange, placeholder }: { label: string; va
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
-export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ejercicios, initialData, saveAction }: Props) {
+export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ejercicios, initialData, saveAction, limpiarButton }: Props) {
   const normalise = (): DayMap => {
     const m: DayMap = {};
     for (const [k, list] of Object.entries(initialData)) {
@@ -301,6 +302,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             className="h-8 px-3 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-light transition-colors disabled:opacity-50 shrink-0">
             {saving ? '…' : savedMsg ? '✓' : 'Guardar'}
           </button>
+          {limpiarButton}
         </div>
 
         {/* Fila 2 móvil: semana + día */}
@@ -367,6 +369,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             </svg>
             Cerrar bloque
           </button>
+          {limpiarButton}
           <a href="/professional/programas"
             className="h-8 px-3 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

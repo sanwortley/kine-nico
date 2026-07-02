@@ -59,6 +59,16 @@ export async function deletePrograma(programaId: string) {
   return { success: true };
 }
 
+export async function limpiarPrograma(clientId: string) {
+  const programa = await prisma.programa.findFirst({
+    where: { clientId, cerradoAt: null },
+    select: { id: true },
+  });
+  if (!programa) return { success: false, error: 'No hay programa activo.' };
+  await prisma.programaDia.deleteMany({ where: { programaId: programa.id } });
+  return { success: true };
+}
+
 // Close current block and open a new one
 export async function cerrarYNuevoBloque(clientId: string, nombreNuevo: string) {
   const activo = await prisma.programa.findFirst({ where: { clientId, cerradoAt: null } });

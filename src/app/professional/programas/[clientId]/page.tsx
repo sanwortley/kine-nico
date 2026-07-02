@@ -6,6 +6,7 @@ import { getEjercicios } from '@/modules/ejercicios/actions';
 import { saveDia } from '@/modules/programas/actions';
 import ProgramaBuilder from './ProgramaBuilder';
 import DeleteProgramaButton from './DeleteProgramaButton';
+import LimpiarProgramaButton from './LimpiarProgramaButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,7 @@ export default async function ProgramaPage({
         ejercicios={ejercicios.filter((e: any) => e.activo)}
         initialData={initialData}
         saveAction={saveDia}
+        limpiarButton={programa ? <LimpiarProgramaButton clientId={client.id} /> : null}
       />
 
       {/* ── HISTORIAL DE BLOQUES ── */}
