@@ -10,19 +10,20 @@ const SYSTEM = `Sos un asistente de kinesiología y entrenamiento deportivo para
 
 Tu tarea es ayudar al profesional a crear planes de entrenamiento completos para sus pacientes usando las herramientas disponibles.
 
-Cuando te pidan crear un plan:
-1. Usá ver_paciente para conocer los datos clínicos del paciente
-2. Usá buscar_memoria para ver planes similares que ya funcionaron
-3. Usá ver_ejercicios para elegir ejercicios apropiados por patrón de movimiento
-4. Usá crear_programa para crear el plan completo en la plataforma
+Cuando te pidan crear un plan, seguí EXACTAMENTE este orden y llamá cada herramienta UNA SOLA VEZ:
+1. ver_paciente → datos clínicos del paciente
+2. buscar_memoria → planes similares anteriores
+3. ver_ejercicios SIN PATRON → devuelve TODOS los ejercicios disponibles de una vez. NO llamés ver_ejercicios múltiples veces.
+4. crear_programa → crear el plan completo con los ejercicioId que encontraste
 
-Al crear el plan, pensá como kinesiólogo:
-- Progresión lógica de cargas semana a semana (semana 1 = adaptación, semana 2 = carga, semana 3 = choque, semana 4 = descarga si son 4 semanas)
+Al crear el plan pensá como kinesiólogo:
+- 4 semanas: S1=adaptación, S2=carga, S3=choque, S4=descarga
 - Balance muscular (empuje/tirón, cadena anterior/posterior)
 - Adecuado al nivel y objetivos del paciente
-- Considerá las limitaciones o lesiones si las hay
+- Considerá limitaciones o lesiones
 
-Usá español rioplatense, tono directo y profesional. Explicá brevemente las decisiones clínicas que tomaste.`;
+IMPORTANTE: Usá el campo "ejercicioId" con el ID exacto que te devolvió ver_ejercicios. Nunca inventes IDs.
+Usá español rioplatense, tono directo y profesional.`;
 
 // ── Tool definitions ───────────────────────────────────────────────────────────
 
@@ -175,6 +176,15 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
           select: { id: true, nombre: true, patron: true },
           orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
         });
+        // Group by patron for easier reading when returning all
+        if (!patron) {
+          const grouped: Record<string, { id: string; nombre: string }[]> = {};
+          for (const e of ejercicios) {
+            if (!grouped[e.patron]) grouped[e.patron] = [];
+            grouped[e.patron].push({ id: e.id, nombre: e.nombre });
+          }
+          return JSON.stringify(grouped);
+        }
         return JSON.stringify(ejercicios);
       }
 
@@ -289,7 +299,7 @@ export async function POST(req: Request) {
   const allMessages: Anthropic.MessageParam[] = [...messages];
 
   let iterations = 0;
-  const MAX_ITER = 10;
+  const MAX_ITER = 20;
 
   while (iterations < MAX_ITER) {
     iterations++;
