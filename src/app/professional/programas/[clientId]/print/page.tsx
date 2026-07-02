@@ -188,6 +188,13 @@ export default async function PrintProgramaPage({
 
   if (!client || !programa) redirect(session.role === 'CLIENT' ? '/client/dashboard?tab=misplanes' : '/professional/programas');
 
+  // Determine actual block position by counting programs created before this one
+  // (accounts for deleted blocks — if all previous were deleted, this becomes Bloque 1)
+  const bloqueAnteriorCount = await prisma.programa.count({
+    where: { clientId, createdAt: { lt: programa.createdAt } },
+  });
+  const bloquePosition = bloqueAnteriorCount + 1;
+
   const latest    = dinamometrias[0] ?? null;
   const lsiCuad   = lsi(latest?.cuadDer,    latest?.cuadIzq);
   const lsiIsquio = lsi(latest?.isquioDer,  latest?.isquioIzq);
@@ -255,7 +262,7 @@ export default async function PrintProgramaPage({
   const today = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const modalidad = dias.length >= 3 ? 'Full body / MMII' : 'MMII exclusivo';
 
-  const bloqueNum = programa.nombre.match(/\d+/)?.[0] ?? '1';
+  const bloqueNum = String(bloquePosition);
   const docTitle = `NJK ${client.name} Plan B${bloqueNum}`;
 
   // Isquio goal calc
