@@ -115,12 +115,10 @@ export default function FloatingChat() {
           style={{ maxHeight: 'min(520px, calc(100vh - 100px))' }}>
 
           {/* Header */}
-          <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="px-4 py-3 flex items-center justify-between shrink-0" style={{ background: 'linear-gradient(to right, #0A3D62, #2980B9)' }}>
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+              <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0">
+                <img src="/icono_chatbot.png" alt="NJK" className="w-full h-full object-cover" />
               </div>
               <div>
                 <p className="text-white text-xs font-bold">Asistente IA</p>
@@ -150,7 +148,7 @@ export default function FloatingChat() {
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
                   msg.role === 'user'
-                    ? 'bg-violet-600 text-white rounded-br-sm'
+                    ? 'bg-[#0A3D62] text-white rounded-br-sm'
                     : 'bg-slate-50 border border-slate-100 text-slate-700 rounded-bl-sm'
                 }`}>
                   {msg.role === 'assistant' && msg.events && msg.events.length > 0 && (
@@ -165,7 +163,7 @@ export default function FloatingChat() {
                   {msg.content}
                   {msg.content.includes('/professional/programas/') && (
                     <a href={msg.content.match(/\/professional\/programas\/[\w-]+/)?.[0]}
-                      className="mt-1.5 flex items-center gap-1 text-violet-600 font-bold text-[10px] hover:underline">
+                      className="mt-1.5 flex items-center gap-1 text-[#2980B9] font-bold text-[10px] hover:underline">
                       → Ver programa
                     </a>
                   )}
@@ -176,9 +174,9 @@ export default function FloatingChat() {
             {loading && (
               <div className="flex justify-start">
                 <div className="bg-slate-50 border border-slate-100 rounded-xl rounded-bl-sm px-3 py-2 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="w-1.5 h-1.5 bg-[#2980B9] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-[#2980B9] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-[#2980B9] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             )}
@@ -195,11 +193,11 @@ export default function FloatingChat() {
               placeholder="Escribí acá..."
               rows={1}
               disabled={loading}
-              className="flex-1 resize-none text-xs px-2.5 py-2 rounded-lg border border-slate-200 text-slate-700 focus:outline-none focus:border-violet-400 disabled:opacity-50 max-h-20 overflow-y-auto"
+              className="flex-1 resize-none text-xs px-2.5 py-2 rounded-lg border border-slate-200 text-slate-700 focus:outline-none focus:border-[#2980B9] disabled:opacity-50 max-h-20 overflow-y-auto"
               style={{ minHeight: 34 }}
             />
             <button onClick={() => send()} disabled={loading || !input.trim()}
-              className="h-[34px] w-[34px] rounded-lg bg-violet-600 text-white flex items-center justify-center hover:bg-violet-700 transition-colors disabled:opacity-40 shrink-0">
+              className="h-[34px] w-[34px] rounded-lg text-white flex items-center justify-center transition-colors disabled:opacity-40 shrink-0" style={{ background: '#2980B9' }}>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>

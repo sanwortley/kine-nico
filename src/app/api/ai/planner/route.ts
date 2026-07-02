@@ -6,23 +6,34 @@ export const maxDuration = 120;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Argentina = UTC-3, no DST
+const AR_OFFSET = 3;
+
+function toArDate(d: Date) {
+  return new Date(d.getTime() - AR_OFFSET * 60 * 60 * 1000);
+}
+function arMidnightUTC(yyyy_mm_dd: string) {
+  return new Date(`${yyyy_mm_dd}T${String(AR_OFFSET).padStart(2,'0')}:00:00Z`);
+}
+function todayArStr() {
+  return toArDate(new Date()).toISOString().split('T')[0];
+}
+
 // ── Tool definitions ───────────────────────────────────────────────────────────
 
 const TOOLS: Anthropic.Tool[] = [
   {
     name: 'ver_paciente',
-    description: 'Datos clínicos: ficha de evaluación, dinamometrías, programas anteriores',
+    description: 'Datos clínicos: ficha de evaluación, dinamometrías, programas anteriores de un paciente',
     input_schema: {
       type: 'object' as const,
-      properties: {
-        clientId: { type: 'string' },
-      },
+      properties: { clientId: { type: 'string' } },
       required: ['clientId'],
     },
   },
   {
     name: 'crear_programa',
-    description: 'Crea el programa completo. Usá los nombres EXACTOS de los ejercicios de la lista.',
+    description: 'Crea el programa de entrenamiento completo. Usá los nombres EXACTOS de los ejercicios de la lista.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -86,6 +97,92 @@ const TOOLS: Anthropic.Tool[] = [
       required: ['clientId', 'serviceId', 'professionalId', 'diaSemana', 'hora', 'cantidadSesiones'],
     },
   },
+  {
+    name: 'ver_agenda',
+    description: 'Muestra los turnos de un día específico (o hoy si no se especifica). Incluye IDs para poder cancelar.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD (Argentina). Si no se pasa, usa hoy.' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'cancelar_turno',
+    description: 'Cancela un turno por su ID. Obtené el ID llamando primero a ver_agenda.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        turnoId: { type: 'string', description: 'ID del turno (obtenido de ver_agenda)' },
+      },
+      required: ['turnoId'],
+    },
+  },
+  {
+    name: 'ver_suscripcion',
+    description: 'Muestra el plan activo de un paciente y cuántas sesiones le quedan.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        clientId: { type: 'string' },
+      },
+      required: ['clientId'],
+    },
+  },
+  {
+    name: 'ver_asistencia',
+    description: 'Muestra el historial de turnos completados y la última sesión de un paciente.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        clientId: { type: 'string' },
+      },
+      required: ['clientId'],
+    },
+  },
+  {
+    name: 'registrar_nota',
+    description: 'Agrega una nota de evolución clínica a la ficha del paciente.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        clientId: { type: 'string' },
+        nota: { type: 'string', description: 'Texto de la nota clínica (ej: "Mejoró sentadilla +10kg")' },
+      },
+      required: ['clientId', 'nota'],
+    },
+  },
+  {
+    name: 'crear_ficha',
+    description: 'Crea una nueva ficha de evaluación para un paciente.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        clientId: { type: 'string' },
+        peso: { type: 'number', description: 'Peso en kg' },
+        altura: { type: 'number', description: 'Altura en cm' },
+        sexo: { type: 'string', description: 'M o F' },
+        deporte: { type: 'string' },
+        objetivo: { type: 'string', description: 'Objetivo principal' },
+        notas: { type: 'string', description: 'Observaciones generales' },
+        restricciones: { type: 'string', description: 'Lesiones o limitaciones' },
+      },
+      required: ['clientId'],
+    },
+  },
+  {
+    name: 'asignar_plan',
+    description: 'Asigna un plan de sesiones a un paciente (activa la suscripción manualmente).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        clientId: { type: 'string' },
+        planId: { type: 'string', description: 'ID del plan (de la lista de planes)' },
+      },
+      required: ['clientId', 'planId'],
+    },
+  },
 ];
 
 // ── Tool executor (factory to capture session ID) ──────────────────────────────
@@ -94,6 +191,9 @@ function makeExecutor(createdById: string) {
   return async function executeTool(name: string, input: Record<string, any>): Promise<string> {
     try {
       switch (name) {
+
+        // ── Programas ──────────────────────────────────────────────────────────
+
         case 'ver_paciente': {
           const { clientId } = input;
           const [ficha, dinamometrias, programas] = await Promise.all([
@@ -120,31 +220,23 @@ function makeExecutor(createdById: string) {
 
         case 'crear_programa': {
           const { clientId, nombre, objetivo, dias } = input;
-
-          // Resolve exercise names → IDs
           const allNames: string[] = [...new Set<string>(
             dias.flatMap((d: any) => d.ejercicios.map((e: any) => String(e.nombre)))
           )];
-
           const found = await prisma.ejercicio.findMany({
             where: { nombre: { in: allNames, mode: 'insensitive' } },
             select: { id: true, nombre: true },
           });
           const nameToId = new Map(found.map(e => [e.nombre.toLowerCase(), e.id]));
-
           const missing = allNames.filter(n => !nameToId.has(n.toLowerCase()));
           if (missing.length > 0) {
-            return JSON.stringify({ success: false, error: `Ejercicios no encontrados (revisá los nombres): ${missing.join(', ')}` });
+            return JSON.stringify({ success: false, error: `Ejercicios no encontrados: ${missing.join(', ')}` });
           }
-
-          // Close existing open program
           await prisma.programa.updateMany({
             where: { clientId, cerradoAt: null },
             data: { cerradoAt: new Date() },
           });
-
           const programa = await prisma.programa.create({ data: { clientId, nombre } });
-
           for (const diaData of dias) {
             const diaRecord = await prisma.programaDia.create({
               data: { programaId: programa.id, semana: diaData.semana, dia: diaData.dia },
@@ -153,69 +245,41 @@ function makeExecutor(createdById: string) {
               const ej = diaData.ejercicios[i];
               const ejercicioId = nameToId.get(ej.nombre.toLowerCase())!;
               const ejRecord = await prisma.programaEjercicio.create({
-                data: {
-                  diaId: diaRecord.id,
-                  ejercicioId,
-                  orden: i + 1,
-                  categoria: ej.categoria ?? '',
-                  rir: ej.rir ?? '',
-                  descanso: ej.descanso ?? '90s',
-                },
+                data: { diaId: diaRecord.id, ejercicioId, orden: i + 1, categoria: ej.categoria ?? '', rir: ej.rir ?? '', descanso: ej.descanso ?? '90s' },
               });
               for (const serie of ej.series) {
                 await prisma.programaSerie.create({
-                  data: {
-                    programaEjercicioId: ejRecord.id,
-                    numero: serie.numero,
-                    reps: serie.reps ?? null,
-                    kg: serie.kg ?? null,
-                  },
+                  data: { programaEjercicioId: ejRecord.id, numero: serie.numero, reps: serie.reps ?? null, kg: serie.kg ?? null },
                 });
               }
             }
           }
-
           const diasUnicos = new Set(dias.map((d: any) => d.dia)).size;
           const maxSemana = Math.max(...dias.map((d: any) => d.semana));
-
           await (prisma as any).aiPlanMemoria.create({
-            data: {
-              clientId,
-              objetivo,
-              tags: [],
-              diasSemana: diasUnicos,
-              semanas: maxSemana,
-              planJson: dias,
-              prompt: nombre,
-            },
+            data: { clientId, objetivo, tags: [], diasSemana: diasUnicos, semanas: maxSemana, planJson: dias, prompt: nombre },
           });
-
           return JSON.stringify({
             success: true,
             url: `/professional/programas/${clientId}`,
-            mensaje: `Programa "${nombre}" creado exitosamente: ${diasUnicos} días/semana × ${maxSemana} semanas.`,
+            mensaje: `Programa "${nombre}" creado: ${diasUnicos} días/semana × ${maxSemana} semanas.`,
           });
         }
 
+        // ── Turnos ─────────────────────────────────────────────────────────────
+
         case 'agendar_turnos': {
           const { clientId, serviceId, professionalId, diaSemana, hora, cantidadSesiones, notas } = input;
-
           const [professional, service] = await Promise.all([
             prisma.professional.findUnique({ where: { id: professionalId }, select: { id: true, name: true } }),
             prisma.service.findUnique({ where: { id: serviceId }, select: { id: true, name: true, duration: true } }),
           ]);
-
           if (!professional) return JSON.stringify({ success: false, error: `Profesional no encontrado: ${professionalId}` });
           if (!service) return JSON.stringify({ success: false, error: `Servicio no encontrado: ${serviceId}` });
 
-          // Map diaSemana (1=Lun…7=Dom) → JS getUTCDay() (0=Dom, 1=Lun…6=Sáb)
           const jsDayOfWeek = diaSemana === 7 ? 0 : (diaSemana as number);
           const [hh, mm] = hora.split(':').map(Number);
 
-          // Argentina = UTC-3 (no DST). All date math in UTC to match Railway's timezone.
-          const AR_OFFSET = 3;
-
-          // Start from tomorrow at midnight Argentine time (= 03:00 UTC)
           const start = new Date();
           start.setUTCDate(start.getUTCDate() + 1);
           start.setUTCHours(AR_OFFSET, 0, 0, 0);
@@ -223,10 +287,8 @@ function makeExecutor(createdById: string) {
           const daysUntil = (jsDayOfWeek - start.getUTCDay() + 7) % 7;
           const firstDate = new Date(start);
           firstDate.setUTCDate(firstDate.getUTCDate() + daysUntil);
-          // Store Argentine time as UTC: 11:00 AR → 14:00 UTC
           firstDate.setUTCHours(hh + AR_OFFSET, mm, 0, 0);
 
-          // Generate N weekly dates
           const dates: Date[] = [];
           for (let i = 0; i < cantidadSesiones; i++) {
             const d = new Date(firstDate);
@@ -234,30 +296,22 @@ function makeExecutor(createdById: string) {
             dates.push(d);
           }
 
-          // Skip slots that already have a turno at that exact time for this professional
           const existing = await prisma.turno.findMany({
             where: { fechaInicio: { in: dates }, professionalId: professional.id },
             select: { fechaInicio: true },
           });
           const existingMs = new Set(existing.map(t => t.fechaInicio.getTime()));
-
           const toCreate = dates
             .filter(d => !existingMs.has(d.getTime()))
             .map(fechaInicio => ({
-              fechaInicio,
-              duracion: service.duration,
-              estado: 'RESERVADO' as const,
-              serviceId: service.id,
-              professionalId: professional.id,
-              clientId,
-              createdById,
+              fechaInicio, duracion: service.duration, estado: 'RESERVADO' as const,
+              serviceId: service.id, professionalId: professional.id, clientId, createdById,
               ...(notas ? { notas } : {}),
             }));
 
           const skipped = dates.length - toCreate.length;
-
           if (toCreate.length === 0) {
-            return JSON.stringify({ success: false, error: 'Todos los horarios ya tienen turnos cargados. Revisá el calendario.' });
+            return JSON.stringify({ success: false, error: 'Todos los horarios ya tienen turnos cargados.' });
           }
 
           await (prisma as any).turno.createMany({ data: toCreate });
@@ -266,12 +320,175 @@ function makeExecutor(createdById: string) {
           const resumen = toCreate
             .map(t => `${DIAS[t.fechaInicio.getUTCDay()]} ${t.fechaInicio.toLocaleDateString('es-AR', { timeZone: 'UTC' })} ${hora}hs`)
             .join(' · ');
+          return JSON.stringify({
+            success: true, turnosCreados: toCreate.length, omitidos: skipped,
+            mensaje: `Se agendaron ${toCreate.length} turnos${skipped > 0 ? ` (${skipped} omitidos por conflicto)` : ''}: ${resumen}`,
+          });
+        }
+
+        case 'ver_agenda': {
+          const fecha = input.fecha ?? todayArStr();
+          const desde = arMidnightUTC(fecha);
+          const hasta = new Date(desde.getTime() + 24 * 60 * 60 * 1000);
+
+          const turnos = await prisma.turno.findMany({
+            where: { fechaInicio: { gte: desde, lt: hasta } },
+            include: {
+              client: { select: { id: true, name: true } },
+              service: { select: { name: true } },
+              professional: { select: { name: true } },
+            },
+            orderBy: { fechaInicio: 'asc' },
+          });
+
+          if (turnos.length === 0) return JSON.stringify({ turnos: [], mensaje: `No hay turnos el ${fecha}.` });
+
+          const lista = turnos.map(t => ({
+            id: t.id,
+            hora: toArDate(t.fechaInicio).toISOString().slice(11, 16) + 'hs',
+            estado: t.estado,
+            cliente: (t as any).client?.name ?? '(disponible)',
+            servicio: (t as any).service.name,
+            profesional: (t as any).professional.name,
+          }));
+          return JSON.stringify({ fecha, turnos: lista });
+        }
+
+        case 'cancelar_turno': {
+          const { turnoId } = input;
+          const turno = await prisma.turno.findUnique({
+            where: { id: turnoId },
+            include: { client: { select: { name: true } }, service: { select: { name: true } } },
+          });
+          if (!turno) return JSON.stringify({ success: false, error: 'Turno no encontrado.' });
+
+          await prisma.turno.update({
+            where: { id: turnoId },
+            data: { estado: 'CANCELADO', version: { increment: 1 } },
+          });
+
+          const horaAr = toArDate(turno.fechaInicio).toISOString().slice(11, 16);
+          const fechaAr = toArDate(turno.fechaInicio).toLocaleDateString('es-AR');
+          return JSON.stringify({
+            success: true,
+            mensaje: `Turno cancelado: ${(turno as any).client?.name ?? '(sin cliente)'} — ${(turno as any).service.name} el ${fechaAr} a las ${horaAr}hs.`,
+          });
+        }
+
+        case 'ver_suscripcion': {
+          const { clientId } = input;
+          const now = new Date();
+          const sub = await (prisma as any).subscription.findFirst({
+            where: { userId: clientId, estado: 'ACTIVE', OR: [{ fechaFin: null }, { fechaFin: { gt: now } }] },
+            include: { plan: true },
+            orderBy: { fechaInicio: 'desc' },
+          });
+          if (!sub) return JSON.stringify({ suscripcion: null, mensaje: 'El paciente no tiene suscripción activa.' });
+
+          return JSON.stringify({
+            plan: sub.plan.nombre,
+            sesionesRestantes: sub.turnosRestantes,
+            fechaInicio: sub.fechaInicio,
+            fechaFin: sub.fechaFin,
+            estado: sub.estado,
+          });
+        }
+
+        case 'ver_asistencia': {
+          const { clientId } = input;
+          const completados = await prisma.turno.findMany({
+            where: { clientId, estado: 'COMPLETADO' },
+            include: { service: { select: { name: true } } },
+            orderBy: { fechaInicio: 'desc' },
+            take: 10,
+          });
+          if (completados.length === 0) {
+            return JSON.stringify({ sesiones: [], mensaje: 'No hay sesiones completadas registradas.' });
+          }
+          const sesiones = completados.map(t => ({
+            fecha: toArDate(t.fechaInicio).toLocaleDateString('es-AR'),
+            hora: toArDate(t.fechaInicio).toISOString().slice(11, 16) + 'hs',
+            servicio: (t as any).service.name,
+          }));
+          return JSON.stringify({ totalCompletadas: completados.length, ultimaSesion: sesiones[0].fecha, sesiones });
+        }
+
+        // ── Clínico ────────────────────────────────────────────────────────────
+
+        case 'registrar_nota': {
+          const { clientId, nota } = input;
+          const fechaHoy = toArDate(new Date()).toLocaleDateString('es-AR');
+          const notaConFecha = `[${fechaHoy}] ${nota}`;
+
+          const fichaExistente = await prisma.fichaEvaluacion.findFirst({
+            where: { clientId },
+            orderBy: { fecha: 'desc' },
+            select: { id: true, notas: true },
+          });
+
+          if (fichaExistente) {
+            const notasActualizadas = fichaExistente.notas
+              ? `${fichaExistente.notas}\n${notaConFecha}`
+              : notaConFecha;
+            await prisma.fichaEvaluacion.update({
+              where: { id: fichaExistente.id },
+              data: { notas: notasActualizadas },
+            });
+          } else {
+            await prisma.fichaEvaluacion.create({
+              data: { clientId, notas: notaConFecha },
+            });
+          }
+
+          return JSON.stringify({ success: true, mensaje: `Nota registrada en ficha: "${notaConFecha}"` });
+        }
+
+        case 'crear_ficha': {
+          const { clientId, peso, altura, sexo, deporte, objetivo, notas, restricciones } = input;
+          await prisma.fichaEvaluacion.create({
+            data: {
+              clientId,
+              ...(peso != null ? { peso } : {}),
+              ...(altura != null ? { altura } : {}),
+              ...(sexo ? { sexo } : {}),
+              ...(deporte ? { deporte } : {}),
+              ...(notas ? { notas } : {}),
+              ...(restricciones ? { restricciones } : {}),
+              ...(objetivo ? { objetivos12sem: objetivo } : {}),
+            },
+          });
+          return JSON.stringify({ success: true, mensaje: 'Ficha de evaluación creada exitosamente.' });
+        }
+
+        // ── Administrativo ─────────────────────────────────────────────────────
+
+        case 'asignar_plan': {
+          const { clientId, planId } = input;
+          const plan = await prisma.plan.findUnique({ where: { id: planId } });
+          if (!plan) return JSON.stringify({ success: false, error: `Plan no encontrado: ${planId}` });
+
+          await (prisma as any).subscription.updateMany({
+            where: { userId: clientId, estado: { in: ['ACTIVE', 'PENDING_PAYMENT'] } },
+            data: { estado: 'CANCELLED', fechaFin: new Date() },
+          });
+
+          const now = new Date();
+          const daysMap: Record<string, number> = { week: 7, month: 30 };
+          const days = daysMap[(plan as any).interval] ?? 45;
+
+          await (prisma as any).subscription.create({
+            data: {
+              userId: clientId, planId, estado: 'ACTIVE',
+              turnosRestantes: (plan as any).limiteTurnos,
+              fechaInicio: now,
+              fechaFin: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
+              paymentGateway: 'MANUAL',
+            },
+          });
 
           return JSON.stringify({
             success: true,
-            turnosCreados: toCreate.length,
-            omitidos: skipped,
-            mensaje: `Se agendaron ${toCreate.length} turnos${skipped > 0 ? ` (${skipped} omitidos por conflicto)` : ''}: ${resumen}`,
+            mensaje: `Plan "${(plan as any).nombre}" asignado: ${(plan as any).limiteTurnos} sesiones activadas.`,
           });
         }
 
@@ -283,6 +500,13 @@ function makeExecutor(createdById: string) {
     }
   };
 }
+
+// ── Tools that complete the action loop ───────────────────────────────────────
+
+const ACTION_TOOLS = new Set([
+  'crear_programa', 'agendar_turnos', 'cancelar_turno',
+  'registrar_nota', 'crear_ficha', 'asignar_plan',
+]);
 
 // ── API Route ──────────────────────────────────────────────────────────────────
 
@@ -300,8 +524,8 @@ export async function POST(req: Request) {
 
   const executeTool = makeExecutor(session.id);
 
-  // Pre-load: patients, exercises, services, professionals
-  const [clientes, ejercicios, servicios, profesionales] = await Promise.all([
+  // Pre-load context
+  const [clientes, ejercicios, servicios, profesionales, planes] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'CLIENT', status: 'ACTIVE' },
       select: { id: true, name: true },
@@ -322,6 +546,11 @@ export async function POST(req: Request) {
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
+    prisma.plan.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, limiteTurnos: true, price: true },
+      orderBy: { nombre: 'asc' },
+    }),
   ]);
 
   const grouped: Record<string, string[]> = {};
@@ -330,33 +559,35 @@ export async function POST(req: Request) {
     grouped[e.patron].push(e.nombre);
   }
 
-  const system = `Sos el asistente de kinesiología de Nicolás Jaled Kine. Creás planes de entrenamiento y agendás turnos.
+  const hoyAr = new Date().toLocaleDateString('es-AR', {
+    timeZone: 'America/Argentina/Cordoba',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const system = `Sos el asistente de kinesiología de Nicolás Jaled Kine. Podés crear programas, agendar turnos, consultar agenda, gestionar suscripciones y registrar notas clínicas.
+
+HOY (Argentina): ${hoyAr}
 
 PACIENTES (usá el ID exacto en las herramientas):
 ${clientes.map(c => `${c.name} → ID: ${c.id}`).join('\n')}
 
-SERVICIOS (usá el ID exacto en agendar_turnos):
+SERVICIOS (para agendar_turnos):
 ${servicios.map(s => `${s.name} (${s.duration} min) → ID: ${s.id}`).join('\n')}
 
-PROFESIONALES (usá el ID exacto en agendar_turnos):
+PROFESIONALES (para agendar_turnos):
 ${profesionales.map(p => `${p.name} → ID: ${p.id}`).join('\n')}
+
+PLANES (para asignar_plan):
+${planes.map(p => `${(p as any).nombre} (${(p as any).limiteTurnos} sesiones) → ID: ${p.id}`).join('\n')}
 
 EJERCICIOS POR PATRÓN (usá el NOMBRE EXACTO en crear_programa):
 ${Object.entries(grouped).map(([p, ns]) => `## ${p}\n${ns.join(', ')}`).join('\n\n')}
 
-REGLAS PARA PROGRAMAS:
-- Planificá el programa COMPLETO antes de llamar crear_programa. Llamalo UNA SOLA VEZ con las 4 semanas completas.
-- Creá 4 semanas: S1 adaptación (RIR 3-4), S2 carga (RIR 2), S3 choque (RIR 1), S4 descarga (vol -30%)
-- Balance por sesión: movilidad + fuerza principal (2-3 ej) + accesorio (2-3 ej)
-- Fuerza: 4x4-6 reps | Hipertrofia: 3-4x8-12 | Movilidad: 2-3x10
-- Explicá brevemente las decisiones clínicas DESPUÉS de que crear_programa confirme el éxito
-
-REGLAS PARA TURNOS:
-- Usá agendar_turnos para sesiones recurrentes (ej: "8 lunes a las 14hs por las próximas 8 semanas")
-- Si el usuario no especifica servicio o profesional, usá los que correspondan según el contexto o preguntá.
-- diaSemana: 1=Lunes 2=Martes 3=Miércoles 4=Jueves 5=Viernes 6=Sábado 7=Domingo
-- Llamalo UNA SOLA VEZ con todos los datos. Los turnos empiezan desde el próximo día indicado.
-- Confirmá al profesional qué fechas quedaron agendadas.`;
+REGLAS GENERALES:
+- Para cancelar un turno, primero llamá ver_agenda para obtener el ID, luego cancelar_turno.
+- Para programas: planificá las 4 semanas COMPLETAS antes de llamar crear_programa. Llamalo UNA SOLA VEZ.
+- Para turnos recurrentes: usá agendar_turnos UNA SOLA VEZ con todos los datos.
+- Confirmá siempre al profesional qué acción se realizó y con qué resultado.`;
 
   const encoder = new TextEncoder();
 
@@ -370,7 +601,7 @@ REGLAS PARA TURNOS:
         const allMessages: Anthropic.MessageParam[] = [...messages];
         let iterations = 0;
 
-        while (iterations < 8) {
+        while (iterations < 10) {
           iterations++;
 
           const response = await client.messages.create({
@@ -395,23 +626,30 @@ REGLAS PARA TURNOS:
             for (const block of response.content) {
               if (block.type !== 'tool_use') continue;
 
-              const label =
-                block.name === 'ver_paciente' ? 'Leyendo datos del paciente...' :
-                block.name === 'crear_programa' ? 'Creando programa en la plataforma...' :
-                'Agendando turnos en el calendario...';
-              send({ type: 'event', data: label });
+              const labels: Record<string, string> = {
+                ver_paciente: 'Leyendo datos del paciente...',
+                crear_programa: 'Creando programa en la plataforma...',
+                agendar_turnos: 'Agendando turnos en el calendario...',
+                ver_agenda: 'Consultando agenda...',
+                cancelar_turno: 'Cancelando turno...',
+                ver_suscripcion: 'Consultando suscripción...',
+                ver_asistencia: 'Consultando historial de asistencia...',
+                registrar_nota: 'Registrando nota clínica...',
+                crear_ficha: 'Creando ficha de evaluación...',
+                asignar_plan: 'Asignando plan al paciente...',
+              };
+              send({ type: 'event', data: labels[block.name] ?? 'Procesando...' });
 
               const result = await executeTool(block.name, block.input as Record<string, any>);
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
 
-              if (block.name === 'crear_programa' || block.name === 'agendar_turnos') {
+              if (ACTION_TOOLS.has(block.name)) {
                 try { if (JSON.parse(result).success) actionCompleted = true; } catch {}
               }
             }
 
             allMessages.push({ role: 'user', content: toolResults });
 
-            // After a successful action, get ONE final message then stop
             if (actionCompleted) {
               const final = await client.messages.create({
                 model: 'claude-sonnet-4-6',
@@ -420,7 +658,7 @@ REGLAS PARA TURNOS:
                 tools: TOOLS,
                 messages: allMessages,
               });
-              const text = final.content.find(b => b.type === 'text')?.text ?? 'Acción completada exitosamente.';
+              const text = final.content.find(b => b.type === 'text')?.text ?? 'Acción completada.';
               send({ type: 'done', reply: text });
               break;
             }
