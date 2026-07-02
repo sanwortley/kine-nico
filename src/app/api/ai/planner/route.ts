@@ -6,36 +6,12 @@ export const maxDuration = 120;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM = `Sos un asistente de kinesiología y entrenamiento deportivo para Nicolás Jaled Kine, profesional especializado en rehabilitación y performance deportiva.
-
-Tu tarea es ayudar al profesional a crear planes de entrenamiento completos para sus pacientes usando las herramientas disponibles.
-
-Cuando te pidan crear un plan, seguí EXACTAMENTE este orden y llamá cada herramienta UNA SOLA VEZ:
-1. ver_paciente → datos clínicos del paciente
-2. buscar_memoria → planes similares anteriores
-3. ver_ejercicios SIN PATRON → devuelve TODOS los ejercicios disponibles de una vez. NO llamés ver_ejercicios múltiples veces.
-4. crear_programa → crear el plan completo con los ejercicioId que encontraste
-
-Al crear el plan pensá como kinesiólogo:
-- 4 semanas: S1=adaptación, S2=carga, S3=choque, S4=descarga
-- Balance muscular (empuje/tirón, cadena anterior/posterior)
-- Adecuado al nivel y objetivos del paciente
-- Considerá limitaciones o lesiones
-
-IMPORTANTE: Usá el campo "ejercicioId" con el ID exacto que te devolvió ver_ejercicios. Nunca inventes IDs.
-Usá español rioplatense, tono directo y profesional.`;
-
 // ── Tool definitions ───────────────────────────────────────────────────────────
 
 const TOOLS: Anthropic.Tool[] = [
   {
-    name: 'listar_pacientes',
-    description: 'Lista todos los pacientes activos con nombre e ID',
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
-  },
-  {
     name: 'ver_paciente',
-    description: 'Obtiene datos completos de un paciente: ficha de evaluación, dinamometrías, programas anteriores cerrados',
+    description: 'Obtiene datos clínicos completos de un paciente: ficha de evaluación, dinamometrías recientes, programas anteriores',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -45,55 +21,32 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'ver_ejercicios',
-    description: 'Lista ejercicios de la biblioteca filtrados por patrón de movimiento',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        patron: { type: 'string', description: 'Patrón de movimiento. Ejemplos: "Cadena Posterior", "Empuje Horizontal", "Tirón Vertical", "Core", "Movilidad"' },
-      },
-      required: [],
-    },
-  },
-  {
-    name: 'buscar_memoria',
-    description: 'Busca planes de entrenamiento anteriores similares para aprender de ellos',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        objetivo: { type: 'string', description: 'Objetivo o tipo de plan' },
-        diasSemana: { type: 'number', description: 'Días por semana (opcional)' },
-      },
-      required: ['objetivo'],
-    },
-  },
-  {
     name: 'crear_programa',
-    description: 'Crea un programa de entrenamiento completo en la plataforma para el paciente. Creá siempre al menos 4 semanas con ejercicios completos.',
+    description: 'Crea el programa de entrenamiento completo en la plataforma. Siempre creá 4 semanas con progresión de cargas.',
     input_schema: {
       type: 'object' as const,
       properties: {
         clientId: { type: 'string' },
-        nombre: { type: 'string', description: 'Nombre del bloque ej: "Bloque 2 — Fuerza Base"' },
-        objetivo: { type: 'string', description: 'Objetivo clínico resumido' },
-        tags: { type: 'array', items: { type: 'string' }, description: 'Tags para búsqueda futura ej: ["fuerza", "pierna", "rehabilitación"]' },
+        nombre: { type: 'string', description: 'Nombre del bloque ej: "Bloque 2 — Movilidad y Fuerza"' },
+        objetivo: { type: 'string', description: 'Objetivo clínico en 1 frase' },
+        tags: { type: 'array', items: { type: 'string' } },
         dias: {
           type: 'array',
-          description: 'Array de días del programa. Cada día tiene semana (1-4), dia (1=Lunes, 2=Martes... 7=Domingo) y ejercicios.',
+          description: 'Todos los días del programa (semana 1 a 4, todos los días de entrenamiento)',
           items: {
             type: 'object',
             properties: {
-              semana: { type: 'number' },
-              dia: { type: 'number' },
+              semana: { type: 'number', description: '1 a 4' },
+              dia: { type: 'number', description: '1=Lunes 2=Martes 3=Miércoles 4=Jueves 5=Viernes 6=Sábado 7=Domingo' },
               ejercicios: {
                 type: 'array',
                 items: {
                   type: 'object',
                   properties: {
-                    ejercicioId: { type: 'string' },
-                    categoria: { type: 'string' },
-                    rir: { type: 'string' },
-                    descanso: { type: 'string' },
+                    ejercicioId: { type: 'string', description: 'ID exacto del ejercicio de la lista provista' },
+                    categoria: { type: 'string', description: 'ej: Movilidad, Fuerza, Accesorio' },
+                    rir: { type: 'string', description: 'ej: 2, 1, 0' },
+                    descanso: { type: 'string', description: 'ej: 90s, 2min' },
                     series: {
                       type: 'array',
                       items: {
@@ -103,6 +56,7 @@ const TOOLS: Anthropic.Tool[] = [
                           reps: { type: 'number' },
                           kg: { type: 'number' },
                         },
+                        required: ['numero', 'reps'],
                       },
                     },
                   },
@@ -124,28 +78,11 @@ const TOOLS: Anthropic.Tool[] = [
 async function executeTool(name: string, input: Record<string, any>): Promise<string> {
   try {
     switch (name) {
-      case 'listar_pacientes': {
-        const clientes = await prisma.user.findMany({
-          where: { role: 'CLIENT', status: 'ACTIVE' },
-          select: { id: true, name: true, email: true },
-          orderBy: { name: 'asc' },
-        });
-        return JSON.stringify(clientes);
-      }
-
       case 'ver_paciente': {
         const { clientId } = input;
-        const [client, ficha, dinamometrias, programas] = await Promise.all([
-          prisma.user.findUnique({ where: { id: clientId }, select: { id: true, name: true, email: true } }),
-          prisma.fichaEvaluacion.findFirst({
-            where: { clientId },
-            orderBy: { fecha: 'desc' },
-          }),
-          prisma.dinamometria.findMany({
-            where: { clientId },
-            orderBy: { fecha: 'desc' },
-            take: 3,
-          }),
+        const [ficha, dinamometrias, programas] = await Promise.all([
+          prisma.fichaEvaluacion.findFirst({ where: { clientId }, orderBy: { fecha: 'desc' } }),
+          prisma.dinamometria.findMany({ where: { clientId }, orderBy: { fecha: 'desc' }, take: 2 }),
           prisma.programa.findMany({
             where: { clientId, cerradoAt: { not: null } },
             orderBy: { cerradoAt: 'desc' },
@@ -156,79 +93,39 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
                   ejercicios: {
                     include: { ejercicio: { select: { nombre: true, patron: true } } },
                     orderBy: { orden: 'asc' },
-                    take: 5,
                   },
                 },
               },
             },
           }),
         ]);
-        return JSON.stringify({ client, ficha, dinamometrias, programasAnteriores: programas });
-      }
-
-      case 'ver_ejercicios': {
-        const { patron } = input;
-        const ejercicios = await prisma.ejercicio.findMany({
-          where: {
-            activo: true,
-            ...(patron ? { patron: { contains: patron, mode: 'insensitive' as const } } : {}),
-          },
-          select: { id: true, nombre: true, patron: true },
-          orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
-        });
-        // Group by patron for easier reading when returning all
-        if (!patron) {
-          const grouped: Record<string, { id: string; nombre: string }[]> = {};
-          for (const e of ejercicios) {
-            if (!grouped[e.patron]) grouped[e.patron] = [];
-            grouped[e.patron].push({ id: e.id, nombre: e.nombre });
-          }
-          return JSON.stringify(grouped);
-        }
-        return JSON.stringify(ejercicios);
-      }
-
-      case 'buscar_memoria': {
-        const { objetivo, diasSemana } = input;
-        const planes = await (prisma as any).aiPlanMemoria.findMany({
-          where: {
-            OR: [
-              { objetivo: { contains: objetivo, mode: 'insensitive' } },
-              { tags: { has: objetivo.toLowerCase() } },
-            ],
-            ...(diasSemana ? { diasSemana } : {}),
-          },
-          orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
-          take: 3,
-        });
-        if (!planes.length) return 'No hay planes similares en memoria todavía. Este será el primero.';
-        return JSON.stringify(planes.map((p: any) => ({
-          objetivo: p.objetivo,
-          tags: p.tags,
-          diasSemana: p.diasSemana,
-          rating: p.rating,
-          plan: p.planJson,
-        })));
+        return JSON.stringify({ ficha, dinamometrias, programasAnteriores: programas });
       }
 
       case 'crear_programa': {
         const { clientId, nombre, objetivo, tags = [], dias } = input;
 
-        // Close any open program first
+        // Validate all ejercicioIds exist before creating
+        const ids = [...new Set<string>(dias.flatMap((d: any) => d.ejercicios.map((e: any) => String(e.ejercicioId))))];
+        const found = await prisma.ejercicio.findMany({ where: { id: { in: ids } }, select: { id: true } });
+        const foundIds = new Set(found.map(e => e.id));
+        const missing = ids.filter(id => !foundIds.has(id));
+        if (missing.length > 0) {
+          return JSON.stringify({ success: false, error: `Ejercicios no encontrados: ${missing.join(', ')}. Usá únicamente IDs de la lista provista.` });
+        }
+
+        // Close existing open program
         const activo = await prisma.programa.findFirst({ where: { clientId, cerradoAt: null } });
         if (activo) {
           await prisma.programa.update({ where: { id: activo.id }, data: { cerradoAt: new Date() } });
         }
 
-        // Create the new program
         const programa = await prisma.programa.create({ data: { clientId, nombre } });
 
-        // Create all dias and exercises
         for (const diaData of dias) {
           const diaRecord = await prisma.programaDia.create({
             data: { programaId: programa.id, semana: diaData.semana, dia: diaData.dia },
           });
-
           for (let i = 0; i < diaData.ejercicios.length; i++) {
             const ej = diaData.ejercicios[i];
             const ejRecord = await prisma.programaEjercicio.create({
@@ -241,7 +138,6 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
                 descanso: ej.descanso ?? '90s',
               },
             });
-
             for (const serie of ej.series) {
               await prisma.programaSerie.create({
                 data: {
@@ -255,8 +151,8 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
           }
         }
 
-        // Save to AI memory for learning
-        const diasUnicos = [...new Set(dias.map((d: any) => d.dia))].length;
+        // Save to AI memory
+        const diasUnicos = new Set(dias.map((d: any) => d.dia)).size;
         await (prisma as any).aiPlanMemoria.create({
           data: {
             clientId,
@@ -272,8 +168,8 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
         return JSON.stringify({
           success: true,
           programaId: programa.id,
-          mensaje: `Programa "${nombre}" creado con ${dias.length} días distribuidos en ${Math.max(...dias.map((d: any) => d.semana))} semanas.`,
           url: `/professional/programas/${clientId}`,
+          mensaje: `Programa "${nombre}" creado: ${diasUnicos} días/semana × ${Math.max(...dias.map((d: any) => d.semana))} semanas.`,
         });
       }
 
@@ -281,11 +177,11 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
         return `Herramienta desconocida: ${name}`;
     }
   } catch (err: any) {
-    return `Error ejecutando ${name}: ${err.message}`;
+    return `Error: ${err.message}`;
   }
 }
 
-// ── Agentic loop ───────────────────────────────────────────────────────────────
+// ── API Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -295,19 +191,57 @@ export async function POST(req: Request) {
 
   const { messages } = await req.json() as { messages: Anthropic.MessageParam[] };
 
-  const events: string[] = [];
+  // Pre-load context: patients + all exercises grouped by patron
+  const [clientes, ejercicios] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: 'CLIENT', status: 'ACTIVE' },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.ejercicio.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, patron: true },
+      orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
+    }),
+  ]);
+
+  // Group exercises by patron
+  const grouped: Record<string, { id: string; nombre: string }[]> = {};
+  for (const e of ejercicios) {
+    if (!grouped[e.patron]) grouped[e.patron] = [];
+    grouped[e.patron].push({ id: e.id, nombre: e.nombre });
+  }
+
+  const system = `Sos un asistente de kinesiología y entrenamiento deportivo para Nicolás Jaled Kine.
+Tu tarea es crear planes de entrenamiento completos y efectivos para sus pacientes.
+
+PACIENTES DISPONIBLES:
+${clientes.map(c => `- ${c.name} (ID: ${c.id})`).join('\n')}
+
+EJERCICIOS DISPONIBLES (usá estos IDs exactos en crear_programa):
+${Object.entries(grouped).map(([patron, ejs]) =>
+    `\n### ${patron}\n${ejs.map(e => `  ${e.nombre} → ID: ${e.id}`).join('\n')}`
+  ).join('\n')}
+
+INSTRUCCIONES:
+- Si necesitás datos clínicos del paciente (ficha, historial) usá ver_paciente
+- Para crear el plan usá crear_programa con los IDs exactos de la lista de arriba
+- Siempre creá 4 semanas con progresión: S1=adaptación, S2=carga, S3=choque, S4=descarga
+- Balance muscular: incluí movilidad, fuerza principal y accesorio
+- Ajustá series/reps según el objetivo (fuerza: 3-5 series 3-6 reps; hipertrofia: 3-4 series 8-12 reps; movilidad: 2-3 series)
+- Usá español rioplatense, explicá brevemente las decisiones clínicas`;
+
   const allMessages: Anthropic.MessageParam[] = [...messages];
+  const events: string[] = [];
 
   let iterations = 0;
-  const MAX_ITER = 20;
-
-  while (iterations < MAX_ITER) {
+  while (iterations < 15) {
     iterations++;
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8096,
-      system: SYSTEM,
+      max_tokens: 16000,
+      system,
       tools: TOOLS,
       messages: allMessages,
     });
@@ -319,13 +253,12 @@ export async function POST(req: Request) {
 
     if (response.stop_reason === 'tool_use') {
       allMessages.push({ role: 'assistant', content: response.content });
-
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
       for (const block of response.content) {
         if (block.type !== 'tool_use') continue;
-
-        events.push(`🔧 ${toolLabel(block.name)}`);
+        const label = block.name === 'ver_paciente' ? 'Leyendo datos del paciente...' : 'Creando programa en la plataforma...';
+        events.push(`🔧 ${label}`);
         const result = await executeTool(block.name, block.input as Record<string, any>);
         toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
       }
@@ -338,15 +271,4 @@ export async function POST(req: Request) {
   }
 
   return Response.json({ reply: 'No pude completar la tarea.', events });
-}
-
-function toolLabel(name: string): string {
-  const map: Record<string, string> = {
-    listar_pacientes: 'Consultando pacientes...',
-    ver_paciente: 'Leyendo datos del paciente...',
-    ver_ejercicios: 'Buscando ejercicios...',
-    buscar_memoria: 'Buscando planes similares...',
-    crear_programa: 'Creando programa en la plataforma...',
-  };
-  return map[name] ?? name;
 }
