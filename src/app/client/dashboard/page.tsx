@@ -44,7 +44,7 @@ export default async function ClientDashboard({
     prisma.programa.findFirst({
       where: { clientId: session.id, cerradoAt: null },
       select: {
-        id: true, nombre: true,
+        id: true, nombre: true, createdAt: true,
         dias: {
           orderBy: [{ semana: 'asc' }, { dia: 'asc' }],
           select: {
@@ -114,6 +114,22 @@ export default async function ClientDashboard({
       redirect(`/client/dashboard?tab=planes&errorMsg=${encodeURIComponent(res.error || 'Error al iniciar suscripción.')}`);
     }
   }
+
+  // Compute real block position: count programs created before this one
+  const programaBloque = tienePrograma
+    ? await prisma.programa.count({
+        where: { clientId: session.id, createdAt: { lt: (tienePrograma as any).createdAt } },
+      }).then(n => n + 1)
+    : 1;
+
+  // Build display name: replace leading "Bloque X" with computed position
+  const programaNombreDisplay = tienePrograma
+    ? (() => {
+        const raw = (tienePrograma as any).nombre as string;
+        const sin = raw.replace(/^bloque\s+\d+\s*[—–\-]\s*/i, '').trim();
+        return sin ? `Bloque ${programaBloque} — ${sin}` : `Bloque ${programaBloque}`;
+      })()
+    : '';
 
   const now = new Date();
   
@@ -561,7 +577,7 @@ export default async function ClientDashboard({
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h2 className="font-title text-lg text-primary font-bold leading-tight">{programa.nombre}</h2>
+                          <h2 className="font-title text-lg text-primary font-bold leading-tight">{programaNombreDisplay}</h2>
                           <p className="text-xs text-slate-500 mt-0.5">{diasUnicos.length} días/semana · {totalEj} ejercicios en total</p>
                           <p className="text-xs text-slate-400 mt-2">Tu plan de entrenamiento personalizado está listo. Abrí el PDF para ver todos los ejercicios, series y progresión semana a semana.</p>
                         </div>

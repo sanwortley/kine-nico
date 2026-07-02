@@ -13,18 +13,14 @@ const INIT: Message = {
 
 export default function FloatingChat() {
   const pathname = usePathname();
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen]         = useState(false);
   const [messages, setMessages] = useState<Message[]>([INIT]);
-  const [input, setInput]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [input, setInput]       = useState('');
+  const [loading, setLoading]   = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
-  // Only show on admin / professional routes
-  const visible = pathname.startsWith('/admin') || pathname.startsWith('/professional');
-  if (!visible) return null;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // ALL hooks must be called before any conditional return
   useEffect(() => {
     if (open) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,7 +28,6 @@ export default function FloatingChat() {
     }
   }, [open, messages]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const send = useCallback(async (text?: string) => {
     const content = (text ?? input).trim();
     if (!content || loading) return;
@@ -107,6 +102,10 @@ export default function FloatingChat() {
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   }
+
+  // Conditional render AFTER all hooks
+  const visible = pathname.startsWith('/admin') || pathname.startsWith('/professional');
+  if (!visible) return null;
 
   return (
     <>
