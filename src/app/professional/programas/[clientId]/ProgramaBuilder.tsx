@@ -405,7 +405,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             {libFilter.map(ej => {
               const active = inSession.has(ej.id);
               return (
@@ -429,7 +429,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
             <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{session.length}</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-2 pb-2 space-y-1.5">
             {session.length === 0 && (
               <p className="text-xs text-slate-400 text-center py-8 px-3 leading-relaxed">
                 Hacé click en un ejercicio de la biblioteca para agregarlo
@@ -458,7 +458,7 @@ export default function ProgramaBuilder({ clientId, clientName, bloqueActual, ej
         </div>
 
         {/* ── DETALLE ────────────────────────────────────────────────────── */}
-        <div className={`${mobilePanel === 'detalle' ? 'flex flex-col' : 'hidden'} md:flex md:flex-col flex-1 overflow-y-auto bg-slate-50`}>
+        <div className={`${mobilePanel === 'detalle' ? 'flex flex-col' : 'hidden'} md:flex md:flex-col flex-1 overflow-y-auto overscroll-contain bg-slate-50`}>
           {!selected ? (
             <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-8 text-center">
               Seleccioná un ejercicio de la sesión para configurarlo
