@@ -208,25 +208,29 @@ function makeExecutor(createdById: string) {
           if (!professional) return JSON.stringify({ success: false, error: `Profesional no encontrado: ${professionalId}` });
           if (!service) return JSON.stringify({ success: false, error: `Servicio no encontrado: ${serviceId}` });
 
-          // Map diaSemana (1=Lun…7=Dom) → JS getDay() (0=Dom, 1=Lun…6=Sáb)
+          // Map diaSemana (1=Lun…7=Dom) → JS getUTCDay() (0=Dom, 1=Lun…6=Sáb)
           const jsDayOfWeek = diaSemana === 7 ? 0 : (diaSemana as number);
           const [hh, mm] = hora.split(':').map(Number);
 
-          // Start from tomorrow to avoid same-day conflicts
-          const start = new Date();
-          start.setDate(start.getDate() + 1);
-          start.setHours(0, 0, 0, 0);
+          // Argentina = UTC-3 (no DST). All date math in UTC to match Railway's timezone.
+          const AR_OFFSET = 3;
 
-          const daysUntil = (jsDayOfWeek - start.getDay() + 7) % 7;
+          // Start from tomorrow at midnight Argentine time (= 03:00 UTC)
+          const start = new Date();
+          start.setUTCDate(start.getUTCDate() + 1);
+          start.setUTCHours(AR_OFFSET, 0, 0, 0);
+
+          const daysUntil = (jsDayOfWeek - start.getUTCDay() + 7) % 7;
           const firstDate = new Date(start);
-          firstDate.setDate(firstDate.getDate() + daysUntil);
-          firstDate.setHours(hh, mm, 0, 0);
+          firstDate.setUTCDate(firstDate.getUTCDate() + daysUntil);
+          // Store Argentine time as UTC: 11:00 AR → 14:00 UTC
+          firstDate.setUTCHours(hh + AR_OFFSET, mm, 0, 0);
 
           // Generate N weekly dates
           const dates: Date[] = [];
           for (let i = 0; i < cantidadSesiones; i++) {
             const d = new Date(firstDate);
-            d.setDate(d.getDate() + i * 7);
+            d.setUTCDate(d.getUTCDate() + i * 7);
             dates.push(d);
           }
 
@@ -260,7 +264,7 @@ function makeExecutor(createdById: string) {
 
           const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
           const resumen = toCreate
-            .map(t => `${DIAS[t.fechaInicio.getDay()]} ${t.fechaInicio.toLocaleDateString('es-AR')} ${hora}hs`)
+            .map(t => `${DIAS[t.fechaInicio.getUTCDay()]} ${t.fechaInicio.toLocaleDateString('es-AR', { timeZone: 'UTC' })} ${hora}hs`)
             .join(' · ');
 
           return JSON.stringify({
