@@ -57,6 +57,7 @@ function lsiBg(v: number): string {
 type DbSerie = { numero: number; reps: number | null; pctRM: number | null; kg: number | null };
 type DbEj = {
   nombre: string; patron: string; categoria: string | null;
+  descripcion: string | null;
   rir: string | null; descanso: string | null; tempo: string | null;
   rounds: string | null; timeCap: string | null; series: DbSerie[];
   videoUrl?: string | null;
@@ -173,7 +174,7 @@ export default async function PrintProgramaPage({
             ejercicios: {
               orderBy: { orden: 'asc' },
               include: {
-                ejercicio: { select: { nombre: true, patron: true, videoUrl: true } },
+                ejercicio: { select: { nombre: true, patron: true, videoUrl: true, descripcion: true } },
                 series:    { orderBy: { numero: 'asc' } },
               },
             },
@@ -195,7 +196,7 @@ export default async function PrintProgramaPage({
   const semanas = [...new Set(programa.dias.map(d => d.semana))].sort((a, b) => a - b);
   const dias    = [...new Set(programa.dias.map(d => d.dia))].sort((a, b) => a - b);
 
-  type EjRow = { nombre: string; patron: string; notas: string; categoria: string | null; videoUrl?: string | null; bySemana: Record<number, string> };
+  type EjRow = { nombre: string; patron: string; notas: string; descripcion: string | null; categoria: string | null; videoUrl?: string | null; bySemana: Record<number, string> };
 
   function buildDayRows(diaNum: number): EjRow[] {
     const bySem: Record<number, DbEj[]> = {};
@@ -204,6 +205,7 @@ export default async function PrintProgramaPage({
       bySem[d.semana] = d.ejercicios.map(e => ({
         nombre: e.ejercicio.nombre, patron: e.ejercicio.patron,
         videoUrl: e.ejercicio.videoUrl,
+        descripcion: e.ejercicio.descripcion ?? null,
         categoria: e.categoria, rir: e.rir, descanso: e.descanso,
         tempo: e.tempo, rounds: e.rounds, timeCap: e.timeCap,
         series: e.series.map(s => ({ numero: s.numero, reps: s.reps, pctRM: s.pctRM, kg: s.kg })),
@@ -214,10 +216,10 @@ export default async function PrintProgramaPage({
       const bySemana: Record<number, string> = {};
       for (const s of semanas) bySemana[s] = bySem[s]?.[idx] ? fmt(bySem[s][idx]) : '—';
       const parts: string[] = [];
-      if (r.rir)      parts.push(`Excéntrico ${r.rir}`);
       if (r.descanso) parts.push(`Pausa ${r.descanso}`);
+      if (r.rir)      parts.push(`RIR ${r.rir}`);
       if (r.tempo)    parts.push(`Tempo ${r.tempo}`);
-      return { nombre: r.nombre, patron: r.patron, notas: parts.join(' · '), categoria: r.categoria, videoUrl: r.videoUrl, bySemana };
+      return { nombre: r.nombre, patron: r.patron, notas: parts.join(' · '), descripcion: r.descripcion ?? null, categoria: r.categoria, videoUrl: r.videoUrl, bySemana };
     });
   }
 
@@ -295,11 +297,11 @@ export default async function PrintProgramaPage({
               K I N E S I O L O G Í A &nbsp;&amp;&nbsp; P E R F O R M A N C E
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, color: 'white', lineHeight: 1.1 }}>
-              Plan de Entrenamiento — {client.name}
+              {programa.nombre} — {client.name}
             </div>
             <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.72)', marginTop: 3 }}>
               {evolucion ? `Post-Cx ${evolucion} meses · ` : ''}
-              Bloque 1 · {semanas.length} semanas · {dias.length} días/semana
+              {semanas.length} semanas · {dias.length} días/semana
             </div>
           </div>
 
@@ -311,7 +313,7 @@ export default async function PrintProgramaPage({
             </div>
             <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.65)', marginBottom: 2 }}>
               <span style={{ color: 'rgba(255,255,255,0.5)' }}>Bloque: </span>
-              <strong style={{ color: 'white' }}>1 / 3</strong>
+              <strong style={{ color: 'white' }}>{bloqueNum}</strong>
             </div>
             <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.65)' }}>
               <span style={{ color: 'rgba(255,255,255,0.5)' }}>Modalidad: </span>
@@ -458,8 +460,10 @@ export default async function PrintProgramaPage({
                               </a>
                             )}
                           </div>
-                          {row.notas && (
-                            <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 1, fontStyle: 'italic' }}>{row.notas}</div>
+                          {(row.descripcion || row.notas) && (
+                            <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 1, fontStyle: 'italic' }}>
+                              {[row.descripcion, row.notas].filter(Boolean).join(' · ')}
+                            </div>
                           )}
                         </div>
                         {/* Per-semana prescriptions */}
@@ -478,8 +482,9 @@ export default async function PrintProgramaPage({
               </div>
 
               {/* Per-day footer */}
-              <div style={{ textAlign: 'center', paddingTop: 6, fontSize: 8, color: '#cbd5e1', fontStyle: 'italic' }}>
-                Entrenar con ciencia, recuperar con conciencia
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 5, marginTop: 2, borderTop: '1px solid #f1f5f9' }}>
+                <span style={{ fontSize: 8, color: '#cbd5e1', fontStyle: 'italic' }}>Entrenar con ciencia, recuperar con conciencia</span>
+                <span style={{ fontSize: 8, color: '#cbd5e1' }}>NJK · Pág. {diaIdx + 1}</span>
               </div>
             </div>
           );
@@ -489,8 +494,8 @@ export default async function PrintProgramaPage({
         {ai.notas.length > 0 && (
           <div style={{ border: '1px solid #e2e8f0', borderRadius: 5, padding: '10px 14px', marginTop: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#0A3D62' }}>Notas clínicas — Bloque 1</div>
-              <div style={{ fontSize: 8.5, color: '#94a3b8' }}>Lic. Nicolás Jaled — NJK Kinesiología &amp; Performance</div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#0A3D62' }}>Notas clínicas — {programa.nombre}</div>
+              <div style={{ fontSize: 8.5, color: '#94a3b8', marginLeft: 8 }}>Lic. Nicolás Jaled — NJK Kinesiología &amp; Performance</div>
             </div>
             <ul style={{ listStyle: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 20px' }}>
               {ai.notas.map((n, i) => (
@@ -503,12 +508,13 @@ export default async function PrintProgramaPage({
           </div>
         )}
 
-        {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
+        {/* ══ FOOTER FINAL ════════════════════════════════════════════════════ */}
         <div style={{ marginTop: 14, paddingTop: 8, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 8.5, color: '#94a3b8', fontStyle: 'italic' }}>
-            Entrenar con ciencia, recuperar con conciencia
-          </span>
-          <span style={{ fontSize: 8.5, color: '#94a3b8' }}>NJK · Pág. 1</span>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#0A3D62' }}>Lic. Nicolás Jaled — NJK Kinesiología &amp; Performance</div>
+            <div style={{ fontSize: 8, color: '#94a3b8' }}>@nicolasjaled.kine · WhatsApp: 3884459941 · Córdoba, Argentina</div>
+          </div>
+          <span style={{ fontSize: 8.5, color: '#94a3b8' }}>NJK · Pág. {dias.length + 1}</span>
         </div>
 
       </div>
