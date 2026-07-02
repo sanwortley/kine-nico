@@ -53,16 +53,51 @@ export default function FloatingChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages }),
       });
-      const data = await res.json();
+
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const events: string[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.type === 'event') {
+              events.push(msg.data);
+              setMessages(prev => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === 'assistant' && last.content === '') {
+                  return [...copy.slice(0, -1), { ...last, events: [...(last.events ?? []), msg.data] }];
+                }
+                return [...copy, { role: 'assistant' as const, content: '', events: [msg.data] }];
+              });
+            } else if (msg.type === 'done') {
+              setMessages(prev => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === 'assistant' && last.content === '') {
+                  return [...copy.slice(0, -1), { ...last, content: msg.reply }];
+                }
+                return [...copy, { role: 'assistant' as const, content: msg.reply, events }];
+              });
+            }
+          } catch { /* ignore malformed lines */ }
+        }
+      }
+    } catch (err: any) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.reply,
-        events: data.events ?? [],
-      }]);
-    } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Error al conectar con el asistente.',
+        content: `Error: ${err.message ?? 'No se pudo conectar con el asistente.'}`,
       }]);
     } finally {
       setLoading(false);

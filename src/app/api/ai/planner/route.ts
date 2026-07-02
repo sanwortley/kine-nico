@@ -11,42 +11,40 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const TOOLS: Anthropic.Tool[] = [
   {
     name: 'ver_paciente',
-    description: 'Obtiene datos clínicos completos de un paciente: ficha de evaluación, dinamometrías recientes, programas anteriores',
+    description: 'Datos clínicos: ficha de evaluación, dinamometrías, programas anteriores',
     input_schema: {
       type: 'object' as const,
       properties: {
-        clientId: { type: 'string', description: 'ID del paciente' },
+        clientId: { type: 'string' },
       },
       required: ['clientId'],
     },
   },
   {
     name: 'crear_programa',
-    description: 'Crea el programa de entrenamiento completo en la plataforma. Siempre creá 4 semanas con progresión de cargas.',
+    description: 'Crea el programa completo. Usá los nombres EXACTOS de los ejercicios de la lista.',
     input_schema: {
       type: 'object' as const,
       properties: {
         clientId: { type: 'string' },
-        nombre: { type: 'string', description: 'Nombre del bloque ej: "Bloque 2 — Movilidad y Fuerza"' },
-        objetivo: { type: 'string', description: 'Objetivo clínico en 1 frase' },
-        tags: { type: 'array', items: { type: 'string' } },
+        nombre: { type: 'string', description: 'Título del bloque, ej: "Bloque 2 — Fuerza General"' },
+        objetivo: { type: 'string' },
         dias: {
           type: 'array',
-          description: 'Todos los días del programa (semana 1 a 4, todos los días de entrenamiento)',
           items: {
             type: 'object',
             properties: {
-              semana: { type: 'number', description: '1 a 4' },
-              dia: { type: 'number', description: '1=Lunes 2=Martes 3=Miércoles 4=Jueves 5=Viernes 6=Sábado 7=Domingo' },
+              semana: { type: 'number' },
+              dia: { type: 'number', description: '1=Lunes 2=Martes 3=Miérc 4=Jueves 5=Viernes 6=Sáb 7=Dom' },
               ejercicios: {
                 type: 'array',
                 items: {
                   type: 'object',
                   properties: {
-                    ejercicioId: { type: 'string', description: 'ID exacto del ejercicio de la lista provista' },
-                    categoria: { type: 'string', description: 'ej: Movilidad, Fuerza, Accesorio' },
-                    rir: { type: 'string', description: 'ej: 2, 1, 0' },
-                    descanso: { type: 'string', description: 'ej: 90s, 2min' },
+                    nombre: { type: 'string', description: 'Nombre exacto del ejercicio de la lista' },
+                    categoria: { type: 'string', description: 'Movilidad | Fuerza | Accesorio | Cardio' },
+                    rir: { type: 'string' },
+                    descanso: { type: 'string' },
                     series: {
                       type: 'array',
                       items: {
@@ -60,7 +58,7 @@ const TOOLS: Anthropic.Tool[] = [
                       },
                     },
                   },
-                  required: ['ejercicioId', 'series'],
+                  required: ['nombre', 'series'],
                 },
               },
             },
@@ -84,8 +82,8 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
           prisma.fichaEvaluacion.findFirst({ where: { clientId }, orderBy: { fecha: 'desc' } }),
           prisma.dinamometria.findMany({ where: { clientId }, orderBy: { fecha: 'desc' }, take: 2 }),
           prisma.programa.findMany({
-            where: { clientId, cerradoAt: { not: null } },
-            orderBy: { cerradoAt: 'desc' },
+            where: { clientId },
+            orderBy: { createdAt: 'desc' },
             take: 2,
             include: {
               dias: {
@@ -103,22 +101,29 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
       }
 
       case 'crear_programa': {
-        const { clientId, nombre, objetivo, tags = [], dias } = input;
+        const { clientId, nombre, objetivo, dias } = input;
 
-        // Validate all ejercicioIds exist before creating
-        const ids = [...new Set<string>(dias.flatMap((d: any) => d.ejercicios.map((e: any) => String(e.ejercicioId))))];
-        const found = await prisma.ejercicio.findMany({ where: { id: { in: ids } }, select: { id: true } });
-        const foundIds = new Set(found.map(e => e.id));
-        const missing = ids.filter(id => !foundIds.has(id));
+        // Resolve exercise names → IDs
+        const allNames: string[] = [...new Set<string>(
+          dias.flatMap((d: any) => d.ejercicios.map((e: any) => String(e.nombre)))
+        )];
+
+        const found = await prisma.ejercicio.findMany({
+          where: { nombre: { in: allNames, mode: 'insensitive' } },
+          select: { id: true, nombre: true },
+        });
+        const nameToId = new Map(found.map(e => [e.nombre.toLowerCase(), e.id]));
+
+        const missing = allNames.filter(n => !nameToId.has(n.toLowerCase()));
         if (missing.length > 0) {
-          return JSON.stringify({ success: false, error: `Ejercicios no encontrados: ${missing.join(', ')}. Usá únicamente IDs de la lista provista.` });
+          return JSON.stringify({ success: false, error: `Ejercicios no encontrados (revisá los nombres): ${missing.join(', ')}` });
         }
 
         // Close existing open program
-        const activo = await prisma.programa.findFirst({ where: { clientId, cerradoAt: null } });
-        if (activo) {
-          await prisma.programa.update({ where: { id: activo.id }, data: { cerradoAt: new Date() } });
-        }
+        await prisma.programa.updateMany({
+          where: { clientId, cerradoAt: null },
+          data: { cerradoAt: new Date() },
+        });
 
         const programa = await prisma.programa.create({ data: { clientId, nombre } });
 
@@ -128,10 +133,11 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
           });
           for (let i = 0; i < diaData.ejercicios.length; i++) {
             const ej = diaData.ejercicios[i];
+            const ejercicioId = nameToId.get(ej.nombre.toLowerCase())!;
             const ejRecord = await prisma.programaEjercicio.create({
               data: {
                 diaId: diaRecord.id,
-                ejercicioId: ej.ejercicioId,
+                ejercicioId,
                 orden: i + 1,
                 categoria: ej.categoria ?? '',
                 rir: ej.rir ?? '',
@@ -151,15 +157,16 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
           }
         }
 
-        // Save to AI memory
         const diasUnicos = new Set(dias.map((d: any) => d.dia)).size;
+        const maxSemana = Math.max(...dias.map((d: any) => d.semana));
+
         await (prisma as any).aiPlanMemoria.create({
           data: {
             clientId,
             objetivo,
-            tags,
+            tags: [],
             diasSemana: diasUnicos,
-            semanas: Math.max(...dias.map((d: any) => d.semana)),
+            semanas: maxSemana,
             planJson: dias,
             prompt: nombre,
           },
@@ -167,9 +174,8 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
 
         return JSON.stringify({
           success: true,
-          programaId: programa.id,
           url: `/professional/programas/${clientId}`,
-          mensaje: `Programa "${nombre}" creado: ${diasUnicos} días/semana × ${Math.max(...dias.map((d: any) => d.semana))} semanas.`,
+          mensaje: `Programa "${nombre}" creado exitosamente: ${diasUnicos} días/semana × ${maxSemana} semanas.`,
         });
       }
 
@@ -189,9 +195,13 @@ export async function POST(req: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return streamError('La variable ANTHROPIC_API_KEY no está configurada. Agregala en Railway → Variables.');
+  }
+
   const { messages } = await req.json() as { messages: Anthropic.MessageParam[] };
 
-  // Pre-load context: patients + all exercises grouped by patron
+  // Pre-load: patients + exercise names grouped by patron (no UUIDs needed in prompt)
   const [clientes, ejercicios] = await Promise.all([
     prisma.user.findMany({
       where: { role: 'CLIENT', status: 'ACTIVE' },
@@ -200,75 +210,102 @@ export async function POST(req: Request) {
     }),
     prisma.ejercicio.findMany({
       where: { activo: true },
-      select: { id: true, nombre: true, patron: true },
+      select: { nombre: true, patron: true },
       orderBy: [{ patron: 'asc' }, { nombre: 'asc' }],
     }),
   ]);
 
-  // Group exercises by patron
-  const grouped: Record<string, { id: string; nombre: string }[]> = {};
+  const grouped: Record<string, string[]> = {};
   for (const e of ejercicios) {
     if (!grouped[e.patron]) grouped[e.patron] = [];
-    grouped[e.patron].push({ id: e.id, nombre: e.nombre });
+    grouped[e.patron].push(e.nombre);
   }
 
-  const system = `Sos un asistente de kinesiología y entrenamiento deportivo para Nicolás Jaled Kine.
-Tu tarea es crear planes de entrenamiento completos y efectivos para sus pacientes.
+  const system = `Sos el asistente de kinesiología de Nicolás Jaled Kine. Creás planes de entrenamiento completos.
 
-PACIENTES DISPONIBLES:
-${clientes.map(c => `- ${c.name} (ID: ${c.id})`).join('\n')}
+PACIENTES (usá el ID exacto en crear_programa):
+${clientes.map(c => `${c.name} → ID: ${c.id}`).join('\n')}
 
-EJERCICIOS DISPONIBLES (usá estos IDs exactos en crear_programa):
-${Object.entries(grouped).map(([patron, ejs]) =>
-    `\n### ${patron}\n${ejs.map(e => `  ${e.nombre} → ID: ${e.id}`).join('\n')}`
-  ).join('\n')}
+EJERCICIOS POR PATRÓN (usá el NOMBRE EXACTO en crear_programa):
+${Object.entries(grouped).map(([p, ns]) => `## ${p}\n${ns.join(', ')}`).join('\n\n')}
 
-INSTRUCCIONES:
-- Si necesitás datos clínicos del paciente (ficha, historial) usá ver_paciente
-- Para crear el plan usá crear_programa con los IDs exactos de la lista de arriba
-- Siempre creá 4 semanas con progresión: S1=adaptación, S2=carga, S3=choque, S4=descarga
-- Balance muscular: incluí movilidad, fuerza principal y accesorio
-- Ajustá series/reps según el objetivo (fuerza: 3-5 series 3-6 reps; hipertrofia: 3-4 series 8-12 reps; movilidad: 2-3 series)
-- Usá español rioplatense, explicá brevemente las decisiones clínicas`;
+REGLAS:
+- Creá siempre 4 semanas: S1 adaptación (RIR 3-4), S2 carga (RIR 2), S3 choque (RIR 1), S4 descarga (vol -30%)
+- Balance por sesión: movilidad + fuerza principal (2-3 ej) + accesorio (2-3 ej)
+- Fuerza: 4x4-6 reps | Hipertrofia: 3-4x8-12 | Movilidad: 2-3x10
+- Explicá brevemente las decisiones clínicas al final`;
 
-  const allMessages: Anthropic.MessageParam[] = [...messages];
-  const events: string[] = [];
+  const encoder = new TextEncoder();
 
-  let iterations = 0;
-  while (iterations < 15) {
-    iterations++;
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj: object) => {
+        controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+      };
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16000,
-      system,
-      tools: TOOLS,
-      messages: allMessages,
-    });
+      try {
+        const allMessages: Anthropic.MessageParam[] = [...messages];
+        let iterations = 0;
 
-    if (response.stop_reason === 'end_turn') {
-      const text = response.content.find(b => b.type === 'text')?.text ?? '';
-      return Response.json({ reply: text, events });
-    }
+        while (iterations < 8) {
+          iterations++;
 
-    if (response.stop_reason === 'tool_use') {
-      allMessages.push({ role: 'assistant', content: response.content });
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+          const response = await client.messages.create({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 8000,
+            system,
+            tools: TOOLS,
+            messages: allMessages,
+          });
 
-      for (const block of response.content) {
-        if (block.type !== 'tool_use') continue;
-        const label = block.name === 'ver_paciente' ? 'Leyendo datos del paciente...' : 'Creando programa en la plataforma...';
-        events.push(`🔧 ${label}`);
-        const result = await executeTool(block.name, block.input as Record<string, any>);
-        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+          if (response.stop_reason === 'end_turn') {
+            const text = response.content.find(b => b.type === 'text')?.text ?? '';
+            send({ type: 'done', reply: text });
+            break;
+          }
+
+          if (response.stop_reason === 'tool_use') {
+            allMessages.push({ role: 'assistant', content: response.content });
+            const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+            for (const block of response.content) {
+              if (block.type !== 'tool_use') continue;
+              const label = block.name === 'ver_paciente'
+                ? 'Leyendo datos del paciente...'
+                : 'Creando programa en la plataforma...';
+              send({ type: 'event', data: label });
+
+              const result = await executeTool(block.name, block.input as Record<string, any>);
+              toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
+            }
+
+            allMessages.push({ role: 'user', content: toolResults });
+            continue;
+          }
+
+          break;
+        }
+      } catch (err: any) {
+        send({ type: 'done', reply: `Error: ${err.message}` });
+      } finally {
+        controller.close();
       }
+    },
+  });
 
-      allMessages.push({ role: 'user', content: toolResults });
-      continue;
-    }
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}
 
-    break;
-  }
-
-  return Response.json({ reply: 'No pude completar la tarea.', events });
+function streamError(msg: string): Response {
+  const encoder = new TextEncoder();
+  return new Response(
+    encoder.encode(JSON.stringify({ type: 'done', reply: msg }) + '\n'),
+    { headers: { 'Content-Type': 'application/x-ndjson' } }
+  );
 }
