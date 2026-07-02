@@ -8,7 +8,7 @@ interface Message { role: Role; content: string; events?: string[] }
 
 const INIT: Message = {
   role: 'assistant',
-  content: '¡Hola! ¿Qué plan creamos hoy?',
+  content: '¡Hola! Puedo crear planes de entrenamiento o agendar turnos recurrentes. ¿Qué necesitás?',
 };
 
 export default function FloatingChat() {
