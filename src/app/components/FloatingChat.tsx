@@ -13,12 +13,37 @@ const INIT: Message = {
 
 export default function FloatingChat() {
   const pathname = usePathname();
-  const [open, setOpen]         = useState(false);
-  const [messages, setMessages] = useState<Message[]>([INIT]);
-  const [input, setInput]       = useState('');
-  const [loading, setLoading]   = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLTextAreaElement>(null);
+  const [open, setOpen]             = useState(false);
+  const [messages, setMessages]     = useState<Message[]>([INIT]);
+  const [input, setInput]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const bottomRef     = useRef<HTMLDivElement>(null);
+  const inputRef      = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  function toggleVoice() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SR = typeof window !== 'undefined' &&
+      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = 'es-AR';
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onstart  = () => setIsListening(true);
+    rec.onresult = (e: any) => {
+      const t = e.results[0][0].transcript as string;
+      setInput(prev => prev ? prev + ' ' + t : t);
+    };
+    rec.onend   = () => setIsListening(false);
+    rec.onerror = () => setIsListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+  }
 
   // ALL hooks must be called before any conditional return
   useEffect(() => {
@@ -190,12 +215,26 @@ export default function FloatingChat() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="Escribí acá..."
+              placeholder={isListening ? 'Escuchando...' : 'Escribí o usá el micrófono...'}
               rows={1}
               disabled={loading}
               className="flex-1 resize-none text-xs px-2.5 py-2 rounded-lg border border-slate-200 text-slate-700 focus:outline-none focus:border-[#2980B9] disabled:opacity-50 max-h-20 overflow-y-auto"
               style={{ minHeight: 34 }}
             />
+            <button
+              onClick={toggleVoice}
+              disabled={loading}
+              title={isListening ? 'Detener' : 'Hablar'}
+              className={`h-[34px] w-[34px] rounded-lg flex items-center justify-center transition-all shrink-0 ${
+                isListening
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </button>
             <button onClick={() => send()} disabled={loading || !input.trim()}
               className="h-[34px] w-[34px] rounded-lg text-white flex items-center justify-center transition-colors disabled:opacity-40 shrink-0" style={{ background: '#2980B9' }}>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
