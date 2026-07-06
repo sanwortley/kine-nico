@@ -199,6 +199,48 @@ const TOOLS: Anthropic.Tool[] = [
       required: ['clientId'],
     },
   },
+  {
+    name: 'ver_ficha',
+    description: 'Devuelve el historial de fichas de evaluación de un paciente: tests de salto (CMJ, SJ, Abalakov), sprint, ROM, fuerzaTests, datos corporales, historia clínica, objetivos, fortalezas, debilidades.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { clientId: { type: 'string' } },
+      required: ['clientId'],
+    },
+  },
+  {
+    name: 'ver_dinamometrias',
+    description: 'Devuelve el historial de dinamometría de un paciente con déficits izq/der calculados para cuádriceps, isquiotibiales, abductores, adductores y eversores. También incluye ROM y velocidad de squat.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { clientId: { type: 'string' } },
+      required: ['clientId'],
+    },
+  },
+  {
+    name: 'ver_planilla',
+    description: 'Devuelve la planilla clínica completa del atleta: lesiones previas, cirugías, objetivos corto/mediano/largo plazo, disponibilidad semanal, experiencia deportiva, antecedentes.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { clientId: { type: 'string' } },
+      required: ['clientId'],
+    },
+  },
+  {
+    name: 'buscar_pacientes',
+    description: 'Busca entre todos los pacientes activos por criterios clínicos. Usalo para preguntas como "pacientes con LCA", "déficit cuád > 15%", "evaluados en junio".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        lesion: { type: 'string', description: 'Palabra a buscar en historial de lesiones (ej: "LCA", "rodilla", "menisco")' },
+        deporte: { type: 'string', description: 'Filtra por deporte practicado' },
+        deficit_cuad_min: { type: 'number', description: 'Déficit mínimo de cuádriceps en % (ej: 15 = asimetría >15%)' },
+        evaluacion_desde: { type: 'string', description: 'Fecha YYYY-MM-DD: pacientes con evaluación desde esta fecha' },
+        evaluacion_hasta: { type: 'string', description: 'Fecha YYYY-MM-DD: pacientes con evaluación hasta esta fecha' },
+      },
+      required: [],
+    },
+  },
 ];
 
 // ── Tool executor (factory to capture session ID) ──────────────────────────────
@@ -537,6 +579,162 @@ function makeExecutor(createdById: string) {
           return JSON.stringify({ success: true, mensaje: `Programa "${(programa as any).nombre}" limpiado. Todos los ejercicios fueron eliminados.` });
         }
 
+        // ── Clínico extendido ──────────────────────────────────────────────────
+
+        case 'ver_ficha': {
+          const { clientId } = input;
+          const fichas = await prisma.fichaEvaluacion.findMany({
+            where: { clientId },
+            orderBy: { fecha: 'desc' },
+          });
+          if (fichas.length === 0) return JSON.stringify({ fichas: [], mensaje: 'El paciente no tiene fichas de evaluación registradas.' });
+          const formatted = fichas.map(f => ({
+            fecha: toArDate(f.fecha).toLocaleDateString('es-AR'),
+            peso: f.peso, altura: f.altura, sexo: f.sexo, deporte: f.deporte,
+            historia: f.historia,
+            romTests: f.romTests,
+            fuerzaTests: f.fuerzaTests,
+            capacidadTests: f.capacidadTests,
+            dinamoExt: f.dinamoExt,
+            fortalezas: f.fortalezas, debilidades: f.debilidades,
+            prioridades: f.prioridades, restricciones: f.restricciones,
+            objetivos12sem: f.objetivos12sem, notas: f.notas,
+            fechaReevaluacion: f.fechaReevaluacion
+              ? toArDate(f.fechaReevaluacion).toLocaleDateString('es-AR')
+              : null,
+          }));
+          return JSON.stringify({ total: fichas.length, fichas: formatted });
+        }
+
+        case 'ver_dinamometrias': {
+          const { clientId } = input;
+          const registros = await prisma.dinamometria.findMany({
+            where: { clientId },
+            orderBy: { fecha: 'desc' },
+          });
+          if (registros.length === 0) return JSON.stringify({ registros: [], mensaje: 'El paciente no tiene evaluaciones de dinamometría.' });
+
+          function defPct(a: number | null | undefined, b: number | null | undefined) {
+            if (!a || !b) return null;
+            return (Math.abs(a - b) / Math.max(a, b) * 100).toFixed(1) + '%';
+          }
+
+          const evaluaciones = registros.map(r => ({
+            fecha: toArDate(r.fecha).toLocaleDateString('es-AR'),
+            peso: r.peso, altura: r.altura,
+            cuadriceps:     { der: r.cuadDer,    izq: r.cuadIzq,    deficit: defPct(r.cuadDer, r.cuadIzq) },
+            isquiotibiales: { der: r.isquioDer,  izq: r.isquioIzq,  deficit: defPct(r.isquioDer, r.isquioIzq) },
+            abductores:     { der: r.abdDer,     izq: r.abdIzq,     deficit: defPct(r.abdDer, r.abdIzq) },
+            adductores:     { der: r.addDer,     izq: r.addIzq,     deficit: defPct(r.addDer, r.addIzq) },
+            eversores:      { der: r.eversorDer, izq: r.eversorIzq, deficit: defPct(r.eversorDer, r.eversorIzq) },
+            rom: {
+              cadera:  { der: r.romCaderaDer,  izq: r.romCaderaIzq },
+              tobillo: { der: r.romTobilloDer, izq: r.romTobilloIzq },
+            },
+            velocidadSquat: r.velocidadSquat,
+            notas: r.notas,
+          }));
+          return JSON.stringify({ total: registros.length, evaluaciones });
+        }
+
+        case 'ver_planilla': {
+          const { clientId } = input;
+          const planilla = await (prisma as any).planillaAtleta.findUnique({ where: { clientId } });
+          if (!planilla) return JSON.stringify({ planilla: null, mensaje: 'El paciente no tiene planilla clínica registrada.' });
+          return JSON.stringify(planilla);
+        }
+
+        case 'buscar_pacientes': {
+          const { lesion, deporte, deficit_cuad_min, evaluacion_desde, evaluacion_hasta } = input;
+
+          const todos = await prisma.user.findMany({
+            where: { role: 'CLIENT', status: 'ACTIVE' },
+            select: { id: true, name: true },
+          });
+          const ids = todos.map(c => c.id);
+
+          const [planillas, fichas, dinamos] = await Promise.all([
+            (prisma as any).planillaAtleta.findMany({ where: { clientId: { in: ids } } }),
+            prisma.fichaEvaluacion.findMany({
+              where: {
+                clientId: { in: ids },
+                ...(evaluacion_desde ? { fecha: { gte: new Date(evaluacion_desde) } } : {}),
+                ...(evaluacion_hasta ? { fecha: { lte: new Date(evaluacion_hasta + 'T23:59:59Z') } } : {}),
+              },
+              orderBy: { fecha: 'desc' },
+              select: { clientId: true, fecha: true, deporte: true, historia: true, restricciones: true },
+            }),
+            prisma.dinamometria.findMany({
+              where: { clientId: { in: ids } },
+              orderBy: { fecha: 'desc' },
+              select: { clientId: true, fecha: true, cuadDer: true, cuadIzq: true },
+            }),
+          ]);
+
+          const planillaMap = new Map((planillas as any[]).map(p => [p.clientId, p]));
+          const fichasMap = new Map<string, typeof fichas>();
+          for (const f of fichas) {
+            if (!fichasMap.has(f.clientId)) fichasMap.set(f.clientId, []);
+            fichasMap.get(f.clientId)!.push(f);
+          }
+          const dinamoMap = new Map<string, typeof dinamos[0]>();
+          for (const d of dinamos) {
+            if (!dinamoMap.has(d.clientId)) dinamoMap.set(d.clientId, d);
+          }
+
+          const resultados: any[] = [];
+          const hasCriteria = lesion || deporte || deficit_cuad_min != null || evaluacion_desde || evaluacion_hasta;
+
+          for (const c of todos) {
+            const pl = planillaMap.get(c.id) as any;
+            const cFichas = fichasMap.get(c.id) ?? [];
+            const dinamo = dinamoMap.get(c.id) as any;
+            const info: any = { id: c.id, nombre: c.name };
+            let ok = !hasCriteria;
+
+            if (lesion) {
+              const q = lesion.toLowerCase();
+              const enPl = pl && [pl.lesionesCx, pl.lesionesPrevias, pl.antecedentes, pl.motivoConsulta]
+                .some((v: any) => typeof v === 'string' && v.toLowerCase().includes(q));
+              const enFicha = cFichas.some(f => {
+                const h = f.historia as any;
+                return [h?.lesionesPasadas, h?.lesionesActivas, h?.limitaciones, f.restricciones]
+                  .some((v: any) => typeof v === 'string' && v.toLowerCase().includes(q));
+              });
+              if (enPl || enFicha) { ok = true; info.lesion = lesion; }
+              else continue;
+            }
+
+            if (deporte) {
+              const q = deporte.toLowerCase();
+              const enPl = pl?.tipoEntrenamiento?.toLowerCase().includes(q);
+              const enFicha = cFichas.some(f => (f as any).deporte?.toLowerCase().includes(q));
+              if (enPl || enFicha) { ok = true; info.deporte = deporte; }
+              else continue;
+            }
+
+            if (deficit_cuad_min != null) {
+              if (!dinamo?.cuadDer || !dinamo?.cuadIzq) continue;
+              const pct = Math.abs(dinamo.cuadDer - dinamo.cuadIzq) / Math.max(dinamo.cuadDer, dinamo.cuadIzq) * 100;
+              if (pct < deficit_cuad_min) continue;
+              ok = true;
+              info.deficit_cuad = pct.toFixed(1) + '%';
+            }
+
+            if ((evaluacion_desde || evaluacion_hasta) && cFichas.length === 0) continue;
+            if ((evaluacion_desde || evaluacion_hasta) && cFichas.length > 0) {
+              ok = true;
+              info.evaluaciones = cFichas.length;
+              info.ultimaEvaluacion = toArDate(cFichas[0].fecha).toLocaleDateString('es-AR');
+            }
+
+            if (ok) resultados.push(info);
+          }
+
+          if (resultados.length === 0) return JSON.stringify({ pacientes: [], mensaje: 'No se encontraron pacientes con esos criterios.' });
+          return JSON.stringify({ total: resultados.length, pacientes: resultados });
+        }
+
         default:
           return `Herramienta desconocida: ${name}`;
       }
@@ -618,6 +816,8 @@ REGLAS GENERALES:
 - Para crear un programa: primero llamá ver_ejercicios UNA SOLA VEZ para ver la lista, luego planificá las 4 semanas COMPLETAS y llamá crear_programa UNA SOLA VEZ.
 - Para cancelar un turno: primero llamá ver_agenda para obtener el ID, luego cancelar_turno.
 - Para turnos recurrentes: usá agendar_turnos UNA SOLA VEZ con todos los datos.
+- Para análisis clínico de un paciente: usá ver_ficha (tests CMJ/fuerza/ROM), ver_dinamometrias (déficits izq/der), ver_planilla (lesiones/objetivos).
+- Para preguntas sobre múltiples pacientes ("los que tienen LCA", "déficit >15%"): usá buscar_pacientes.
 - Confirmá siempre al profesional qué acción se realizó y con qué resultado.`;
 
   const encoder = new TextEncoder();
@@ -683,6 +883,10 @@ REGLAS GENERALES:
                 crear_ficha: 'Creando ficha de evaluación...',
                 asignar_plan: 'Asignando plan al paciente...',
                 limpiar_programa: 'Limpiando ejercicios del programa...',
+                ver_ficha: 'Consultando fichas de evaluación...',
+                ver_dinamometrias: 'Consultando historial de dinamometría...',
+                ver_planilla: 'Consultando planilla clínica...',
+                buscar_pacientes: 'Buscando pacientes con esos criterios...',
               };
               send({ type: 'event', data: labels[block.name] ?? 'Procesando...' });
 
